@@ -1,0 +1,57 @@
+{% extends 'movimientos/base.html' %}
+
+{% load staticfiles %}
+
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+
+<h3>Balance:</h3>
+<ul>
+    {% for d, v in balance %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+<h3>Ingresos:</h3>
+<ul>
+    {% for d, v in ingresos %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+<h3>Egresos:</h3>
+<ul>
+    {% for d, v in egresos %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+
+
+<h3>Extracciones:</h3>
+<ul>
+    {% for d, v in extracciones %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+
+<h3>Sircreb:</h3>
+<ul>
+    {% for d, v in sircreb %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+
+<h3>Tarjetas:</h3>
+<ul>
+    {% for d, v in tarjetas %}
+        {% for dd, vv in v.items %}
+            <li>{{ dd|title }} {{ d|date:"M Y" }}: {{ vv }}</li>
+        {% endfor %}
+    {% endfor %}
+</ul>
+
+{% endblock %}

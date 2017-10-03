@@ -1,0 +1,14 @@
+<ul>
+    {% for detalle in object_list %}
+        <li>{{ detalle.fecha }}:{{ detalle.codigo }} {{ detalle.descripcion }} {{ detalle.monto }}</li>
+    {% endfor %}
+</ul>
+
+<p>
+    {% if previous_month %}
+        <a href="/{{ previous_month|date:"Y/M" }}">Previous Month</a>
+    {% endif %}
+    {% if next_month %}
+        <a href="/{{ next_month|date:"Y/m" }}">Next Month</a>
+    {% endif %}
+</p>
