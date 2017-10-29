@@ -15,7 +15,7 @@ class DetalleMonthArchiveView(MonthArchiveView):
     allow_future = True
 
 
-def balance(request):
+def balance():
     my_tarjetas = settings.TARJETAS
     ignore = settings.IGNORAR
     balance = dict()
@@ -112,10 +112,34 @@ def balance(request):
             else:
                 egresos[year_month] = np.nansum([egresos[year_month], row.monto])
 
-    return render_to_response("movimientos/dashboard.html",
-                              {'balance': sorted(balance.items(), reverse=True), 'ingresos': sorted(ingresos.items(), reverse=True),
-                              'egresos': sorted(egresos.items(), reverse=True), 'extracciones': sorted(extracciones.items(), reverse=True),
-                              'sircreb': sorted(sircreb.items(), reverse=True), 'tarjetas': sorted(tarjetas.items(), reverse=True)})
+    return ({'balance': sorted(balance.items(), reverse=True),
+             'ingresos': sorted(ingresos.items(), reverse=True),
+             'egresos': sorted(egresos.items(), reverse=True),
+             'extracciones': sorted(extracciones.items(), reverse=True),
+             'sircreb': sorted(sircreb.items(), reverse=True),
+             'tarjetas': sorted(tarjetas.items(), reverse=True),
+             })
+
+
+def wrapper_view(request, operation):
+    my_data = balance()
+    if operation == 'dashboard':
+        return render_to_response("movimientos/dashboard.html", my_data)
+    elif operation == 'balance':
+        return render_to_response("movimientos/balance.html", my_data)
+    elif operation == 'ingresos':
+        return render_to_response("movimientos/balance.html", my_data)
+    elif operation == 'egresos':
+        return render_to_response("movimientos/balance.html", my_data)
+    elif operation == 'extracciones':
+        return render_to_response("movimientos/balance.html", my_data)
+    elif operation == 'sircreb':
+        return render_to_response("movimientos/balance.html", my_data)
+    elif operation == 'tarjetas':
+        return render_to_response("movimientos/tarjetas.html", my_data)
+    else:
+        return render(request, "movimientos/dashboard.html")
+
 
 
 def add_attachment_done(request):

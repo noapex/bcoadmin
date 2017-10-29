@@ -6,21 +6,21 @@
 
 {% block content %}
 
-<h3>Balance:</h3>
+<h3>Balance</h3>
 <ul>
     {% for d, v in balance %}
         <li>{{ d|date:"M Y"  }}: {{ v }}</li>
     {% endfor %}
 </ul>
 
-<h3>Ingresos:</h3>
+<h3>Ingresos</h3>
 <ul>
     {% for d, v in ingresos %}
         <li>{{ d|date:"M Y"  }}: {{ v }}</li>
     {% endfor %}
 </ul>
 
-<h3>Egresos:</h3>
+<h3>Egresos</h3>
 <ul>
     {% for d, v in egresos %}
         <li>{{ d|date:"M Y"  }}: {{ v }}</li>
@@ -29,7 +29,7 @@
 
 
 
-<h3>Extracciones:</h3>
+<h3>Extracciones</h3>
 <ul>
     {% for d, v in extracciones %}
         <li>{{ d|date:"M Y"  }}: {{ v }}</li>
@@ -37,7 +37,7 @@
 </ul>
 
 
-<h3>Sircreb:</h3>
+<h3>Sircreb</h3>
 <ul>
     {% for d, v in sircreb %}
         <li>{{ d|date:"M Y"  }}: {{ v }}</li>
@@ -45,13 +45,40 @@
 </ul>
 
 
-<h3>Tarjetas:</h3>
-<ul>
-    {% for d, v in tarjetas %}
-        {% for dd, vv in v.items %}
-            <li>{{ dd|title }} {{ d|date:"M Y" }}: {{ vv }}</li>
+<h3>Tarjetas</h3>
+
+     <table class="highlight">
+        <thead>
+          <tr>
+              <th>Mes</th>
+              {% for d, v in tarjetas|slice:":1" %}
+                {% for dd, vv in v.items %}
+                    <th>{{ dd|title }}</th>
+                {% endfor %}
+              {% endfor %}
+
+          </tr>
+        </thead>
+    <tbody>
+
+        {% for d, v in tarjetas %}
+            <tr>
+        <td>{{ d|date:"M Y" }}</td>
+            {% for dd, vv in v.items %}
+                <td>{{ vv }}</td>
+            {% endfor %}
+            </tr>
         {% endfor %}
-    {% endfor %}
-</ul>
+
+        </tbody>
+     </table>
+{##}
+{#    {% for d, v in tarjetas %}#}
+{#    <b> {{ d|date:"M Y" }} </b>#}
+{#        {% for dd, vv in v.items %}#}
+{#            <li>{{ dd|title }}: {{ vv }}</li>#}
+{#        {% endfor %}#}
+{#    {% endfor %}#}
+
 
 {% endblock %}

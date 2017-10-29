@@ -1,15 +1,17 @@
-<!DOCTYPE html>
-<html>
-<!-- file: add_attachment.html -->
-    <head lang="en">
-        <meta charset="UTF-8">
-        <title>{% block title %}{% endblock %}</title>
-    </head>
-    <body>
+{% extends 'movimientos/base.html' %}
+{% load staticfiles %}
+
+{% block title %}Agregar archivos{% endblock %}
+
+{% block content %}
+    <br/>
+    <p>Se pueden subir archivos generados por Santander Río, de a varios a la vez. Se admiten solo .xls</p>
+    <br/>
+
         <form action="" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="file" name="myfiles" multiple>
-            <button type="submit">Save</button>
+            <button type="submit">Subir</button>
         </form>
-    </body>
-</html>
+
+{% endblock %}

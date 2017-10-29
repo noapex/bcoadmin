@@ -1,12 +1,84 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <!-- file: add_attachment.html -->
     <head lang="en">
         <meta charset="UTF-8">
         <title>{% block title %}{% endblock %}</title>
+        <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+
+        <!-- Compiled and minified CSS -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
+
+        <!-- Compiled and minified JavaScript -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link href="{% static "css/bcoadmin.css" %}" rel="stylesheet" />
+{#        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">#}
     </head>
     <body>
-    {% block content %}
-    {% endblock %}
+
+    <div class="wrapper">
+    <!-- Dropdown Structure -->
+    <ul id="dropdown1" class="dropdown-content">
+      <li><a href="#!">2016</a></li>
+    </ul>
+
+    <ul id="dropdown2" class="dropdown-content">
+      <li><a href="2017/10">Octubre</a></li>
+        <li><a href="2017/09">Septiembre</a></li>
+        <li><a href="/2017/08">Agosto</a></li>
+        <li><a href="/2017/07">Julio</a></li>
+        <li><a href="/2017/06">Junio</a></li>
+        <li><a href="/2017/05">Mayo</a></li>
+        <li><a href="/2017/04">Abril</a></li>
+        <li><a href="/2017/03">Marzo</a></li>
+        <li><a href="/2017/02">Febrero</a></li>
+        <li><a href="/2017/01">Enero</a></li>
+    </ul>
+
+    <nav class="nav-extended  teal lighten-2">
+    <div class="nav-wrapper">
+      <a href="/" class="brand-logo">Mis Cuentas</a>
+      <ul class="right hide-on-med-and-down">
+        <li><a href="/balance">Balance</a></li>
+        <li><a href="/ingresos">Ingresos</a></li>
+        <li><a href="/egresos">Egresos</a></li>
+        <li><a href="/tarjetas">Tarjetas</a></li>
+        <li><a href="/detalle">Detalle</a></li>
+        <!-- Dropdown Trigger -->
+        <li><a class="dropdown-button" href="#!" data-activates="dropdown1">2017<i class="material-icons right">arrow_drop_down</i></a></li>
+        <li><a class="dropdown-button" href="#!" data-activates="dropdown2">All<i class="material-icons right">arrow_drop_down</i></a></li>
+        <li><a class="halfway-fab waves-effect waves-light " href="/upload">
+        <i class="material-icons">add</i></li>
+      </a>
+      </ul>
+    </div>
+
+  </nav>
+    <div class="content">
+	            <div class="container">
+                    {% block content %}
+
+                    {% endblock %}
+
+	            </div>
+	        </div>
+    </div>
+    <script>
+    $(document).ready(function(){
+        $(".dropdown-button").dropdown({
+            inDuration: 300,
+            outDuration: 225,
+            constrainWidth: false, // Does not change width of dropdown to that of the activator
+            hover: true, // Activate on hover
+            gutter: 0, // Spacing from edge
+            belowOrigin: true, // Displays dropdown below the button
+            alignment: 'left', // Displays dropdown with edge aligned to the left of button
+            stopPropagation: false // Stops event propagation
+        });
+    });
+    </script>
     </body>
 </html>

@@ -1,14 +1,42 @@
-<ul>
-    {% for detalle in object_list %}
-        <li>{{ detalle.fecha }}:{{ detalle.codigo }} {{ detalle.descripcion }} {{ detalle.monto }}</li>
-    {% endfor %}
-</ul>
+{% extends 'movimientos/base.html' %}
+{% load staticfiles %}
 
-<p>
-    {% if previous_month %}
-        <a href="/{{ previous_month|date:"Y/M" }}">Previous Month</a>
-    {% endif %}
-    {% if next_month %}
-        <a href="/{{ next_month|date:"Y/m" }}">Next Month</a>
-    {% endif %}
-</p>
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+ <table class="highlight">
+        <thead>
+          <tr>
+              <th>Fecha</th>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Monto</th>
+          </tr>
+        </thead>
+    <tbody>
+    {% for detalle in object_list %}
+        <tr>
+            <td>{{ detalle.fecha|date:"d/m" }}</td>
+            <td>{{ detalle.codigo }}</td>
+            <td>{{ detalle.descripcion }}</td>
+            <td><i>{{ detalle.monto }}</i></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+ </table>
+  <div class="row">
+    <div class="col m6 "><p>
+        {% if previous_month %}
+            <a href="/{{ previous_month|date:"Y/m" }}">Anterior</a>
+        {% endif %}</p></div>
+    <div class="col m6 "><p class="right-align">
+        {% if next_month %}
+           <a  href="/{{ next_month|date:"Y/m" }}">Siguiente</a>
+        {% endif %}</p>
+    </div>
+  </div>
+
+
+
+
+{% endblock %}

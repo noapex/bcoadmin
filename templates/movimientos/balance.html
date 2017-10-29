@@ -1,0 +1,16 @@
+{% extends 'movimientos/base.html' %}
+
+{% load staticfiles %}
+
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+
+<h3>Balance</h3>
+<ul>
+    {% for d, v in balance %}
+        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+    {% endfor %}
+</ul>
+
+{% endblock %}

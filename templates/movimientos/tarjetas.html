@@ -1,0 +1,37 @@
+{% extends 'movimientos/base.html' %}
+
+{% load staticfiles %}
+
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+
+<h3>Tarjetas</h3>
+
+     <table class="highlight">
+        <thead>
+          <tr>
+              <th>Mes</th>
+              {% for d, v in tarjetas|slice:":1" %}
+                {% for dd, vv in v.items %}
+                    <th>{{ dd|title }}</th>
+                {% endfor %}
+              {% endfor %}
+
+          </tr>
+        </thead>
+    <tbody>
+
+        {% for d, v in tarjetas %}
+            <tr>
+        <td>{{ d|date:"M Y" }}</td>
+            {% for dd, vv in v.items %}
+                <td>{{ vv }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+
+        </tbody>
+     </table>
+
+{% endblock %}
