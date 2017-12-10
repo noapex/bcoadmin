@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Django settings for bcoadmin project.
 
@@ -137,6 +138,28 @@ STATIC_URL = '/static/'
 MEDIA_ROOT = 'media'
 
 MEDIA_URL = '/media/'
+
+
+TARJETAS = {'american': '34423434',
+            'visa': '34234234234',
+            'master': '3434234234234234'}
+
+IGNORAR = ['Licitacion De Sarasa', 'Pago Op Sarasa']
+
+CATEGORIAS_GASTOS = {'Servicios':
+                         {'Arba': ['Arba'],
+                          'Aysa': ['Aysa'],
+                          },
+                     'Impuestos':
+                         {'Sircreb':
+                              ['Sircreb', ],
+                          },
+                     'Compras con débito':
+                         ['Compra Tarjeta De Debito', ],
+                     'Extracciones':
+                         ['Extraccion'],
+                     }
+
 
 try:
     from .local_settings import *

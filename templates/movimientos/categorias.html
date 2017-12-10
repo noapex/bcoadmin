@@ -1,7 +1,7 @@
 {% extends 'movimientos/base.html' %}
 
 {% load staticfiles %}
-
+{% load humanize %}
 {% block title %}Balance{% endblock %}
 
 {% block content %}
@@ -23,12 +23,12 @@
                                     {% if idx != 'total' and idx != 'modal_id' %}
                                         <tr>
                                             <td>{{ idx }}</td>
-                                            <td>{{ val }}</td>
+                                            <td>{{ val|intcomma }}</td>
                                         </tr>
                                     {% endif %}
                                 {% endfor %}
                             </table>
-                            <p>Total: {{ vv.total }}</p>
+                            <p><b>Total: {{ vv.total|intcomma }}</b></p>
 
                         </div>
                         <div class="modal-footer">
@@ -65,13 +65,13 @@
                     {% if vv|length > 0 %}
                         {% if vv.total != 0 %}
                             {#                            <td>{{ vv.total }} <a class="btn-floating x-btn-small waves-effect waves-light btn modal-trigger" href="#modal{{ vv.modal_id }}"><i class="material-icons">add</i></a></td>#}
-                            <td><a class="modal-trigger" href="#modal{{ vv.modal_id }}">{{ vv.total }} </a></td>
+                            <td><a class="modal-trigger" href="#modal{{ vv.modal_id }}">{{ vv.total|intcomma }} </a></td>
                         {% else %}
-                            <td>{{ vv.total }}</td>
+                            <td>{{ vv.total|intcomma }}</td>
                         {% endif %}
 
                     {% else %}
-                        <td>{{ vv }}</td>
+                        <td>{{ vv|intcomma }}</td>
                     {% endif %}
                 {% endfor %}
             </tr>

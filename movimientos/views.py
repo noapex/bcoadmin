@@ -15,133 +15,12 @@ class DetalleMonthArchiveView(MonthArchiveView):
     date_field = "fecha"
     allow_future = True
 
-    # def get_context_data(self, **kwargs):
-    #     context = super(DetalleMonthArchiveView, self).get_context_data(**kwargs)
-    #     context['now'] = timezone.now()
-    #     return context
-    #
-    # def get(self, request, *args, **kwargs):
-    #     request.session['month'] = 'dic'
-    #     print('sdf')
-    #     return render(request)
-    # def get(self, request, *args, **kwargs):
-    #     myyear = 2017
-    #     mymonths = Detalle.objects.filter(fecha__year=myyear).dates('fecha', 'month', order='DESC')
-    #     # request.session['month'] = 'dic'
-    #     # return render(request, "movimientos/dashboard.html", {'mymonths': months})
-    #     return render(request, "movimientos/detalle_archive_month.html", {'kwargs': kwargs, 'mymonths': mymonths})
     def get_context_data(self, **kwargs):
         myyear = 2017
         context = super(DetalleMonthArchiveView, self).get_context_data(**kwargs)
         context['mymonths'] = Detalle.objects.filter(fecha__year=myyear).dates('fecha', 'month', order='DESC')
         return context
 
-#
-# def balance():
-#     my_tarjetas = settings.TARJETAS
-#     ignore = settings.IGNORAR
-#     balance = dict()
-#     ingresos = dict()
-#     egresos = dict()
-#     extracciones = dict()
-#     sircreb = dict()
-#     tarjetas = dict()
-#     cur_month = None
-#
-#     class StopLooking(Exception):
-#         pass
-#
-#     for row in Detalle.objects.order_by('fecha'):
-#         # row.monto = float("{0:.2f}".format(row.monto))
-#         # Si es el primer registro de un mes
-#         try:
-#             for ign in ignore:
-#                 if ign in row.descripcion:
-#                     print('ign', row.descripcion)
-#                     raise StopLooking()
-#
-#         except StopLooking:
-#             continue
-#
-#         if not row.monto:
-#             row.monto = np.nan
-#         if cur_month != row.fecha.month:
-#             # Mes actual
-#             cur_month = row.fecha.month
-#             year_month = '{:d}{:02d}'.format(row.fecha.year, row.fecha.month)
-#             year_month = datetime.strptime(year_month, '%Y%m')
-#             print('\nMovimientos de %s:' % row.fecha.strftime('%B'))
-#             print(row.monto)
-#
-#             if 'Sircreb' in row.descripcion:
-#                 sircreb[year_month] = row.monto
-#             else:
-#                 sircreb[year_month] = np.nan
-#
-#             if 'Extraccion' in row.descripcion:
-#                 extracciones[year_month] = row.monto
-#             else:
-#                 extracciones[year_month] = np.nan
-#
-#             # tarjetas
-#             for t, n in my_tarjetas.items():
-#                 if n in row.descripcion:
-#                     tarjetas[year_month] = {t: row.monto}
-#                 else:
-#                     if year_month not in tarjetas:
-#                         tarjetas[year_month] = {t: 0}
-#                     else:
-#                         tarjetas[year_month].update({t: 0})
-#
-#             # ingresos y egresos
-#             if row.monto > 0:
-#                 ingresos[year_month] = row.monto
-#                 egresos[year_month] = np.nan
-#             else:
-#                 ingresos[year_month] = np.nan
-#                 egresos[year_month] = row.monto
-#
-#             # balance
-#             balance[year_month] = row.monto
-#
-#         # Los subsiguientes registros de un mes
-#         else:
-#             print(row.monto)
-#
-#             # tarjetas
-#             for t, n in my_tarjetas.items():
-#                 if n in row.descripcion:
-#                     tmp_dict = tarjetas[year_month].copy()
-#                     tmp_dict.update({t: row.monto})
-#                     tarjetas[year_month] = tmp_dict
-#                     # python 3 solamente:
-#                     # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
-#
-#             # extracciones
-#             if 'Extraccion' in row.descripcion:
-#                 extracciones[year_month] = np.nansum([extracciones[year_month], row.monto])
-#
-#             if 'Sircreb' in row.descripcion:
-#                 print('sircreb', row.monto)
-#                 sircreb[year_month] = np.nansum([sircreb[year_month], row.monto])
-#
-#             # balance
-#             balance[year_month] = np.nansum([balance[year_month], row.monto])
-#
-#             # ingresos y egresos
-#             if row.monto > 0:
-#                 ingresos[year_month] = np.nansum([ingresos[year_month], row.monto])
-#             else:
-#                 egresos[year_month] = np.nansum([egresos[year_month], row.monto])
-#
-#     return ({'balance': sorted(balance.items(), reverse=True),
-#              'ingresos': sorted(ingresos.items(), reverse=True),
-#              'egresos': sorted(egresos.items(), reverse=True),
-#              'extracciones': sorted(extracciones.items(), reverse=True),
-#              'sircreb': sorted(sircreb.items(), reverse=True),
-#              'tarjetas': sorted(tarjetas.items(), reverse=True),
-#              })
-#
 
 def balance():
     my_tarjetas = settings.TARJETAS
@@ -155,24 +34,7 @@ def balance():
     cur_month = None
     categorias = dict()
 
-    categorias_gastos = {'Servicios':
-                             {'Arba': ['Arba'],
-                              'Aysa': ['Aysa'],
-                              },
-                         'Impuestos':
-                             {'Sircreb':
-                                  ['Sircreb', ],
-                              },
-                         'Compras con débito':
-                             ['Compra Tarjeta De Debito', ],
-                         'Extracciones':
-                             ['Extraccion'],
-                         }
-
-
-    # cat = {'servicios': 24234, 'otros': {'sircreb': 343, 'debito': 332}, 'extracciones': 3421}
-    # categorias['servicioes'] = 3434
-    # categorias['otros']['sircreb'] = 3434
+    categorias_gastos = settings.CATEGORIAS_GASTOS
 
     class StopLooking(Exception):
         pass
@@ -219,17 +81,6 @@ def balance():
                             if mystr in row.descripcion:
                                 categorias[year_month][cat][subcat] = row.monto
 
-                                # categorias[year_month][cat][cc]
-
-            # if 'Sircreb' in row.descripcion:
-            #     sircreb[year_month] = row.monto
-            # else:
-            #     sircreb[year_month] = np.nan
-            #
-            # if 'Extraccion' in row.descripcion:
-            #     extracciones[year_month] = row.monto
-            # else:
-            #     extracciones[year_month] = np.nan
 
             # tarjetas
             for t, n in my_tarjetas.items():
@@ -243,18 +94,13 @@ def balance():
 
             # ingresos y egresos
             if row.monto > 0:
-                # ingresos[year_month] = row.monto
-                # egresos[year_month] = np.nan
                 balance[year_month]['ingresos'] = row.monto
                 balance[year_month]['egresos'] = np.nan
 
             else:
-                # ingresos[year_month] = np.nan
-                # egresos[year_month] = row.monto
                 balance[year_month]['ingresos'] = np.nan
                 balance[year_month]['egresos'] = row.monto
-            # balance
-            # balance[year_month] = row.monto
+
             balance[year_month]['balance'] = row.monto
         #
         # Los subsiguientes registros de un mes
@@ -270,11 +116,6 @@ def balance():
                     # python 3 solamente:
                     # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
 
-            # for cat, v in categorias_gastos.items():
-            #     for vv in v:
-            #         if vv in row.descripcion:
-            #             categorias[year_month][cat] = np.nansum([categorias[year_month][cat], row.monto])
-
             for cat, v in categorias_gastos.items():
 
                 if isinstance(v, list):
@@ -288,21 +129,6 @@ def balance():
                                 categorias[year_month][cat][subcat] = np.nansum([categorias[year_month][cat][subcat], row.monto])
 
 
-
-
-
-
-
-
-
-            # # extracciones
-            # if 'Extraccion' in row.descripcion:
-            #     extracciones[year_month] = np.nansum([extracciones[year_month], row.monto])
-            #
-            # if 'Sircreb' in row.descripcion:
-            #     print('sircreb', row.monto)
-            #     sircreb[year_month] = np.nansum([sircreb[year_month], row.monto])
-
             # balance
             # balance[year_month] = np.nansum([balance[year_month], row.monto])
             balance[year_month]['balance'] = np.nansum([balance[year_month]['balance'], row.monto])
@@ -314,6 +140,7 @@ def balance():
             else:
                 # egresos[year_month] = np.nansum([egresos[year_month], row.monto])
                 balance[year_month]['egresos'] = np.nansum([balance[year_month]['egresos'], row.monto])
+
     id_count = 0
     for i, v in categorias.items():
         for ii, vv in v.items():
