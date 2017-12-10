@@ -13,7 +13,7 @@ Including another URLconf
     1. Import the include() function: from django.conf.urls import url, include
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
-from django.conf.urls import url
+from django.conf.urls import url, include
 from django.contrib import admin
 from movimientos.views import DetalleMonthArchiveView, add_attachment, add_attachment_done, wrapper_view
 from django.conf import settings
@@ -39,13 +39,14 @@ urlpatterns = [
     url(r'^detalle/(?P<year>[0-9]{4})/(?P<month>[-\w]+)/$',
         DetalleMonthArchiveView.as_view(),
         name="detalle_month"),
-    url(r'^(?P<operation>(balance|tarjetas|detalle|ingresos|egresos))/$',
+    url(r'^(?P<operation>(balance|tarjetas|detalle|ingresos|egresos|categorias))/$',
         wrapper_view, name='main_view'),
     url(r'^(?P<operation>\w{1,50})/(?P<month>[0-9]{2})/$',
         wrapper_view, name='main_view'),
-
-
-
-
-
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns += [
+        url(r'^__debug__/', include(debug_toolbar.urls)),
+    ]

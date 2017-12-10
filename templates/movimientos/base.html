@@ -1,12 +1,16 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html>
 <!-- file: add_attachment.html -->
     <head lang="en">
         <meta charset="UTF-8">
         <title>{% block title %}{% endblock %}</title>
-        <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+{#        <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>#}
 
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <!-- Compiled and minified CSS -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
 
@@ -16,18 +20,70 @@
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
         <link href="{% static "css/bcoadmin.css" %}" rel="stylesheet" />
 {#        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">#}
+    {% block extra_head_content %}{% endblock %}
     </head>
     <body>
-
-    <div class="wrapper">
-    <!-- Dropdown Structure -->
-    <ul id="dropdown1" class="dropdown-content">
+{#        {{ request.session.month }}#}
+    <ul id="dropdown-years" class="dropdown-content">
       <li><a href="#!">2016</a></li>
     </ul>
 
-    <ul id="dropdown2" class="dropdown-content">
-      <li><a href="2017/10">Octubre</a></li>
-        <li><a href="2017/09">Septiembre</a></li>
+    <div class="wrapper">
+        <ul id="slide-out" class="side-nav">
+            <ul class="collapsible collapsible-accordion">
+                <li>
+                <li><a class="collapsible-header waves-effect waves-blue "  data-activates="dropdown-years"><i class="material-icons ">date_range</i>Año
+{#                <li><a class="collapsible-header waves-effect waves-blue " href="#!" data-activates="dropdown-years">Año<i class="material-icons">date_range</i></a></li>#}
+                    <i class="material-icons right" style="margin-right:0;">arrow_drop_down</i></a>
+                    <div class="collapsible-body z-depth-3">
+                        <ul>
+                            <li><a class="waves-effect waves-blue" href="#">2017</a></li>
+                            <li><a class="waves-effect waves-blue" href="#">2016</a></li>
+                            <li><div class="divider"></div></li>
+                        </ul>
+                    </div>
+                </li>
+            </ul>
+
+            <ul class="collapsible collapsible-accordion">
+                <li>
+                <li><a class="collapsible-header waves-effect waves-blue "  data-activates="dropdown-years"><i class="material-icons ">date_range</i>Fecha
+{#                <li><a class="collapsible-header waves-effect waves-blue " href="#!" data-activates="dropdown-years">Año<i class="material-icons">date_range</i></a></li>#}
+                    <i class="material-icons right">arrow_drop_down</i></a>
+                    <div class="collapsible-body z-depth-3">
+                        <ul>
+                            <li><a class="waves-effect waves-blue" href="/2017/12">Diciembre</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/11">Noviembre</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/10">Octubre</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/09">Septiembre</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/08">Agosto</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/07">Julio</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/06">Junio</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/05">Mayo</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/04">Abril</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/03">Marzo</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/02">Febrero</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/01">Enero</a></li>
+                            <li><div class="divider"></div></li>
+                        </ul>
+                    </div>
+                </li>
+            </ul>
+
+            </li>
+
+        </ul>
+
+
+
+
+        <!-- Dropdown Structure -->
+
+    <ul id="dropdown-months" class="dropdown-content">
+        <li><a href="/2017/12">Diciembre</a></li>
+        <li><a href="/2017/11">Noviembre</a></li>
+        <li><a href="/2017/10">Octubre</a></li>
+        <li><a href="/2017/09">Septiembre</a></li>
         <li><a href="/2017/08">Agosto</a></li>
         <li><a href="/2017/07">Julio</a></li>
         <li><a href="/2017/06">Junio</a></li>
@@ -40,22 +96,42 @@
 
     <nav class="nav-extended  teal lighten-2">
     <div class="nav-wrapper">
+          <a href="#" data-activates="slide-out" class="button-collapse  show-on-large"><i class="material-icons">date_range</i></a>
       <a href="/" class="brand-logo">Mis Cuentas</a>
       <ul class="right hide-on-med-and-down">
         <li><a href="/balance">Balance</a></li>
-        <li><a href="/ingresos">Ingresos</a></li>
-        <li><a href="/egresos">Egresos</a></li>
         <li><a href="/tarjetas">Tarjetas</a></li>
-        <li><a href="/detalle">Detalle</a></li>
+        <li><a href="/categorias">Categorias</a></li>
         <!-- Dropdown Trigger -->
-        <li><a class="dropdown-button" href="#!" data-activates="dropdown1">2017<i class="material-icons right">arrow_drop_down</i></a></li>
-        <li><a class="dropdown-button" href="#!" data-activates="dropdown2">All<i class="material-icons right">arrow_drop_down</i></a></li>
+{#        <li><a class="dropdown-button" href="#!" data-activates="dropdown1">2017<i class="material-icons right">arrow_drop_down</i></a></li>#}
+        <li><a class="dropdown-button" href="#!" data-activates="dropdown-months">All<i class="material-icons right">arrow_drop_down</i></a></li>
         <li><a class="halfway-fab waves-effect waves-light " href="/upload">
         <i class="material-icons">add</i></li>
       </a>
       </ul>
     </div>
+{#    <div class="nav-content">#}
+{#      <ul class="tabs tabs-transparent">#}
+{#        <li class="tab"><a href="#test1">2016</a></li>#}
+{#        <li class="tab"><a href="#test4">2017</a></li>#}
+{#      </ul>#}
+{##}
+{#    </div>#}
+    {% if mymonths %}
+        <div class="nav-content">
+          <ul class="tabs tabs-transparent">
+              {% for m in mymonths %}
+                  {% if month|date:"m" == m|date:"m" %}
+                      <li class="tab col s2"><a class="active" target="_self" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
+                  {% else %}
+                      <li class="tab col s2"><a target="_self" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
+                  {% endif %}
+              {% endfor %}
 
+          </ul>
+
+        </div>
+    {% endif %}
   </nav>
     <div class="content">
 	            <div class="container">
@@ -66,6 +142,10 @@
 	            </div>
 	        </div>
     </div>
+
+
+
+
     <script>
     $(document).ready(function(){
         $(".dropdown-button").dropdown({
@@ -79,6 +159,13 @@
             stopPropagation: false // Stops event propagation
         });
     });
+
+
+  // Initialize collapse button
+  $(".button-collapse").sideNav();
+  // Initialize collapsible (uncomment the line below if you use the dropdown variation)
+  //$('.collapsible').collapsible();
+
     </script>
     </body>
 </html>

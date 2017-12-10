@@ -62,3 +62,8 @@
 .tim-row h3{
     margin-top: 0;
 }
+
+.tablesorter-materialize .tablesorter-filter-row td{
+    background-color: white;
+}
+

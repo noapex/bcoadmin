@@ -1,0 +1,91 @@
+{% extends 'movimientos/base.html' %}
+
+{% load staticfiles %}
+
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+    {% for d, v in categorias %}
+        {% for dd, vv in v.items %}
+            {% if vv|length > 0 %}
+                {% if vv.total != 0 %}
+                    <div id="modal{{ vv.modal_id }}" class="modal">
+                        <div class="modal-content">
+                            <h4>{{ dd }} - {{ d|date:"F Y" }}</h4>
+                            <table class="highlight">
+                                <thead>
+                                <tr>
+                                    <th>Servicio</th>
+                                    <th>Monto</th>
+                                </tr>
+                                </thead>
+                                {% for idx, val in vv.items %}
+                                    {% if idx != 'total' and idx != 'modal_id' %}
+                                        <tr>
+                                            <td>{{ idx }}</td>
+                                            <td>{{ val }}</td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </table>
+                            <p>Total: {{ vv.total }}</p>
+
+                        </div>
+                        <div class="modal-footer">
+                            <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Cerrar</a>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+
+
+
+
+    <table class="highlight">
+        <thead>
+        <tr>
+            <th>Mes</th>
+            {% for d, v in categorias|slice:":1" %}
+                {% for dd, vv in v.items %}
+                    <th>{{ dd|title }}</th>
+                {% endfor %}
+            {% endfor %}
+
+        </tr>
+        </thead>
+        <tbody>
+
+        {% for d, v in categorias %}
+            <tr>
+                <td>{{ d|date:"M Y" }}</td>
+                {% for dd, vv in v.items %}
+                    {% if vv|length > 0 %}
+                        {% if vv.total != 0 %}
+                            {#                            <td>{{ vv.total }} <a class="btn-floating x-btn-small waves-effect waves-light btn modal-trigger" href="#modal{{ vv.modal_id }}"><i class="material-icons">add</i></a></td>#}
+                            <td><a class="modal-trigger" href="#modal{{ vv.modal_id }}">{{ vv.total }} </a></td>
+                        {% else %}
+                            <td>{{ vv.total }}</td>
+                        {% endif %}
+
+                    {% else %}
+                        <td>{{ vv }}</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+        {% endfor %}
+
+        </tbody>
+    </table>
+
+    <script>
+        $(document).ready(function(){
+            // the "href" attribute of the modal trigger must specify the modal ID that wants to be triggered
+            $('.modal').modal();
+        });
+    </script>
+
+
+{% endblock %}

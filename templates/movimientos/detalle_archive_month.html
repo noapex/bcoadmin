@@ -1,42 +1,88 @@
 {% extends 'movimientos/base.html' %}
 {% load staticfiles %}
-
+{% load humanize %}
 {% block title %}Balance{% endblock %}
 
+{% block extra_head_content  %}
+    {{ block.super }}
+
+    <!-- materialize stylesheet & icon font -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <!-- materialize theme -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/css/theme.materialize.min.css">
+
+    <!-- tablesorter plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/js/jquery.tablesorter.min.js"></script>
+    <!-- tablesorter widget file - loaded after the plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/js/jquery.tablesorter.widgets.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/css/bcoadmin.css" />
+
+
+{% endblock %}
+
 {% block content %}
- <table class="highlight">
+    {#    {{ request.session.month }}#}
+    <br/>
+    <table class="highlight">
         <thead>
-          <tr>
-              <th>Fecha</th>
-              <th>Código</th>
-              <th>Descripción</th>
-              <th>Monto</th>
-          </tr>
-        </thead>
-    <tbody>
-    {% for detalle in object_list %}
         <tr>
-            <td>{{ detalle.fecha|date:"d/m" }}</td>
-            <td>{{ detalle.codigo }}</td>
-            <td>{{ detalle.descripcion }}</td>
-            <td><i>{{ detalle.monto }}</i></td>
+            <th>Fecha</th>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Monto</th>
         </tr>
-    {% endfor %}
-    </tbody>
- </table>
-  <div class="row">
-    <div class="col m6 "><p>
-        {% if previous_month %}
-            <a href="/{{ previous_month|date:"Y/m" }}">Anterior</a>
-        {% endif %}</p></div>
-    <div class="col m6 "><p class="right-align">
-        {% if next_month %}
-           <a  href="/{{ next_month|date:"Y/m" }}">Siguiente</a>
-        {% endif %}</p>
+        </thead>
+        <tbody>
+        {% for detalle in object_list %}
+            <tr>
+                <td>{{ detalle.fecha|date:"d/m" }}</td>
+                <td>{{ detalle.codigo }}</td>
+                <td>{{ detalle.descripcion }}</td>
+                <td>{{ detalle.monto|intcomma }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="row">
+        <div class="col m6 "><p>
+            {% if previous_month %}
+                <a href="/{{ previous_month|date:"Y/m" }}">Anterior</a>
+            {% endif %}</p></div>
+        <div class="col m6 "><p class="right-align">
+            {% if next_month %}
+                <a  href="/{{ next_month|date:"Y/m" }}">Siguiente</a>
+            {% endif %}</p>
+        </div>
     </div>
-  </div>
 
+    <script>
+        $(function() {
 
+            $("table").tablesorter({
+                theme : "materialize",
 
+                widthFixed: true,
+                // widget code contained in the jquery.tablesorter.widgets.js file
+                // use the zebra stripe widget if you plan on hiding any rows (filter widget)
+                widgets : [ "filter", ],
+
+                widgetOptions : {
+                    // using the default zebra striping class name, so it actually isn't included in the theme variable above
+                    // this is ONLY needed for materialize theming if you are using the filter widget, because rows are hidden
+                    {#          zebra : ["even", "odd"],#}
+
+                    // reset filters button
+                    filter_reset : ".reset",
+
+                    // extra css class name (string or array) added to the filter element (input or select)
+                    // select needs a "browser-default" class or it gets hidden
+                    filter_cssFilter: ["", "", "browser-default"]
+                }
+            })
+
+        });
+    </script>
 
 {% endblock %}

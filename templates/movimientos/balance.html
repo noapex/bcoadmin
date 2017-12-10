@@ -1,5 +1,5 @@
 {% extends 'movimientos/base.html' %}
-
+{% load humanize %}
 {% load staticfiles %}
 
 {% block title %}Balance{% endblock %}
@@ -7,10 +7,29 @@
 {% block content %}
 
 <h3>Balance</h3>
-<ul>
-    {% for d, v in balance %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
-    {% endfor %}
-</ul>
+
+     <table class="highlight">
+        <thead>
+          <tr>
+              <th>Mes</th>
+              <th>Ingresos</th>
+              <th>Egresos</th>
+              <th>Balance</th>
+              <th>Detalle</th>
+          </tr>
+        </thead>
+    <tbody>
+        {% for d, v in balance %}
+            <tr>
+                <td>{{ d|date:"M Y" }}</td>
+                    <td>{{ v.ingresos|intcomma }}</td>
+                    <td>{{ v.egresos|intcomma }}</td>
+                    <td><i>{{ v.balance|intcomma }}</i></td>
+                    <td><a class="btn-floating" href="{{ d|date:"/Y/m/" }}"><i class="material-icons">blur_linear</i></a></td>
+            </tr>
+        {% endfor %}
+
+        </tbody>
+     </table>
 
 {% endblock %}
