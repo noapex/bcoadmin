@@ -1,6 +1,12 @@
 {% extends 'movimientos/base.html' %}
 {% load staticfiles %}
 
+{% block extra_head_content  %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Dropify/0.2.2/css/dropify.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Dropify/0.2.2/js/dropify.min.js"></script>
+{% endblock %}
+
 {% block title %}Agregar archivos{% endblock %}
 
 {% block content %}
@@ -10,8 +16,19 @@
 
         <form action="" method="post" enctype="multipart/form-data">
             {% csrf_token %}
-            <input type="file" name="myfiles" multiple>
-            <button type="submit">Subir</button>
+            <input  class="dropify"  type="file" name="myfiles" multiple>
+            <button class="btn waves-effect waves-light" data-allowed-file-extensions="xls" data-show-remove="true" type="submit">Subir</button>
         </form>
 
+    <script>
+        $('.dropify').dropify({
+            messages: {
+                'default': 'Tira el xls acá o hacé click para elegir',
+                'replace': 'Arrastrá o hace click para reemplazar',
+                'remove':  'Quitar',
+                'error':   'Ooops, la cagaste.'
+            }
+        });
+
+    </script>
 {% endblock %}

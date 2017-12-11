@@ -164,16 +164,8 @@ def balance():
 def wrapper_view(request, operation):
     my_data = balance()
     if operation == 'dashboard':
-        return render_to_response("movimientos/dashboard.html", my_data)
+        return render_to_response("movimientos/balance.html", my_data)
     elif operation == 'balance':
-        return render_to_response("movimientos/balance.html", my_data)
-    elif operation == 'ingresos':
-        return render_to_response("movimientos/balance.html", my_data)
-    elif operation == 'egresos':
-        return render_to_response("movimientos/balance.html", my_data)
-    elif operation == 'extracciones':
-        return render_to_response("movimientos/balance.html", my_data)
-    elif operation == 'sircreb':
         return render_to_response("movimientos/balance.html", my_data)
     elif operation == 'tarjetas':
         return render_to_response("movimientos/tarjetas.html", my_data)

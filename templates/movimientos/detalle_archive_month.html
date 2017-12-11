@@ -10,12 +10,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <!-- materialize theme -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/css/theme.materialize.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.9/css/theme.materialize.min.css">
 
     <!-- tablesorter plugin -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/js/jquery.tablesorter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.9/js/jquery.tablesorter.min.js"></script>
+
     <!-- tablesorter widget file - loaded after the plugin -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.15/js/jquery.tablesorter.widgets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.9/js/jquery.tablesorter.widgets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.9/js/widgets/widget-math.min.js"></script>
+
     <link rel="stylesheet" type="text/css" href="/static/css/bcoadmin.css" />
 
 
@@ -33,6 +36,8 @@
             <th>Monto</th>
         </tr>
         </thead>
+
+
         <tbody>
         {% for detalle in object_list %}
             <tr>
@@ -43,19 +48,26 @@
             </tr>
         {% endfor %}
         </tbody>
-    </table>
 
-    <div class="row">
-        <div class="col m6 "><p>
-            {% if previous_month %}
-                <a href="/{{ previous_month|date:"Y/m" }}">Anterior</a>
-            {% endif %}</p></div>
-        <div class="col m6 "><p class="right-align">
-            {% if next_month %}
-                <a  href="/{{ next_month|date:"Y/m" }}">Siguiente</a>
-            {% endif %}</p>
-        </div>
-    </div>
+      <tbody class="tablesorter-infoOnly">
+        <tr>
+          <th colspan="3">Total</th>
+          <th data-math="above-sum">above-sum</th>
+        </tr>
+      </tbody>
+    </table>
+{##}
+{#    <div class="row">#}
+{#        <div class="col m6 "><p>#}
+{#            {% if previous_month %}#}
+{#                <a href="/{{ previous_month|date:"Y/m" }}">Anterior</a>#}
+{#            {% endif %}</p></div>#}
+{#        <div class="col m6 "><p class="right-align">#}
+{#            {% if next_month %}#}
+{#                <a  href="/{{ next_month|date:"Y/m" }}">Siguiente</a>#}
+{#            {% endif %}</p>#}
+{#        </div>#}
+{#    </div>#}
 
     <script>
         $(function() {
@@ -67,7 +79,7 @@
                 widthFixed: true,
                 // widget code contained in the jquery.tablesorter.widgets.js file
                 // use the zebra stripe widget if you plan on hiding any rows (filter widget)
-                widgets : [ "filter", ],
+                widgets : [ "filter", "math" ],
 
                 widgetOptions : {
                     // using the default zebra striping class name, so it actually isn't included in the theme variable above
@@ -79,7 +91,24 @@
 
                     // extra css class name (string or array) added to the filter element (input or select)
                     // select needs a "browser-default" class or it gets hidden
-                    filter_cssFilter: ["", "", "browser-default"]
+                    filter_cssFilter: ["", "", "browser-default"],
+
+
+                    math_complete : function($cell, wo, result, value, arry) {
+                        var txt = '<span class="align-decimal">' +
+                            ( value === wo.math_none ? '' : '$ ' ) +
+                            result + '</span>';
+                        if ($cell.attr('data-math') === 'all-sum') {
+                            // when the "all-sum" is processed, add a count to the end
+                            return txt + ' (Sum of ' + arry.length + ' cells)';
+                        }
+                        return txt;
+                    },
+                    math_completed : function(c) {
+                        // c = table.config
+                        // called after all math calculations have completed
+                        console.log( 'math calculations complete', c.$table.find('[data-math="all-sum"]:first').text() );
+                    },
                 }
             })
 
