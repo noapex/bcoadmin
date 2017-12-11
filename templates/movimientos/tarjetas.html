@@ -1,7 +1,7 @@
 {% extends 'movimientos/base.html' %}
 
 {% load staticfiles %}
-
+{% load humanize %}
 {% block title %}Balance{% endblock %}
 
 {% block content %}
@@ -26,7 +26,7 @@
             <tr>
         <td>{{ d|date:"M Y" }}</td>
             {% for dd, vv in v.items %}
-                <td>{{ vv }}</td>
+                <td>{{ vv|intcomma }}</td>
             {% endfor %}
             </tr>
         {% endfor %}
