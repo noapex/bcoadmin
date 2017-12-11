@@ -12,7 +12,7 @@ http://localhost:8000
 
 ./manage createsuperuser
 
-# como user root
+como user root
 
 ./manage runserver 127.0.0.1:80
 
