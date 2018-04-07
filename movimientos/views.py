@@ -6,19 +6,21 @@ from django.shortcuts import redirect, render
 from django.shortcuts import render_to_response
 from .models import DataFile, Detalle
 import numpy as np
-from datetime import datetime
+import datetime
 from django.conf import settings
-
+from collections import OrderedDict
 
 class DetalleMonthArchiveView(MonthArchiveView):
-    queryset = Detalle.objects.all()
+    queryset = Detalle.objects.filter(activo=True)
     date_field = "fecha"
     allow_future = True
 
     def get_context_data(self, **kwargs):
-        myyear = 2017
+        today = datetime.date.today()
+        from_date = datetime.datetime.strptime("{} {} {}".format(today.year-1, today.month, 1), "%Y %m %d")
         context = super(DetalleMonthArchiveView, self).get_context_data(**kwargs)
-        context['mymonths'] = Detalle.objects.filter(fecha__year=myyear).dates('fecha', 'month', order='DESC')
+        # context['mymonths'] = Detalle.objects.filter(fecha__year=myyear).dates('fecha', 'month', order='DESC')
+        context['mymonths'] = Detalle.objects.filter(activo=True, fecha__gte=from_date).dates('fecha', 'month', order='DESC')
         return context
 
 
@@ -39,25 +41,26 @@ def balance():
     class StopLooking(Exception):
         pass
 
-    for row in Detalle.objects.order_by('fecha'):
+    for row in Detalle.objects.filter(activo=True).order_by('fecha'):
         # row.monto = float("{0:.2f}".format(row.monto))
-        # Si es el primer registro de un mes
+
         try:
             for ign in ignore:
                 if ign in row.descripcion:
                     print('ign', row.descripcion)
                     raise StopLooking()
-
         except StopLooking:
             continue
 
         if not row.monto:
             row.monto = np.nan
+
+        # Si es el primer registro de un mes (cur_month es distinto al mes porque pasamos al primer
+        # registro del mes siguiente)
         if cur_month != row.fecha.month:
-            # Mes actual
             cur_month = row.fecha.month
             year_month = '{:d}{:02d}'.format(row.fecha.year, row.fecha.month)
-            year_month = datetime.strptime(year_month, '%Y%m')
+            year_month = datetime.datetime.strptime(year_month, '%Y%m')
             balance[year_month] = dict()
             categorias[year_month] = dict()
             # print('\nMovimientos de %s:' % row.fecha.strftime('%B'))
@@ -103,10 +106,8 @@ def balance():
 
             balance[year_month]['balance'] = row.monto
         #
-        # Los subsiguientes registros de un mes
+        # El resto de los movimientos de un mes
         else:
-            # print(row.monto)
-
             # tarjetas
             for t, n in my_tarjetas.items():
                 if n in row.descripcion:
@@ -121,31 +122,41 @@ def balance():
                 if isinstance(v, list):
                     for vv in v:
                         if vv in row.descripcion:
-                            categorias[year_month][cat] = np.nansum([categorias[year_month][cat], row.monto])
+                            categorias[year_month][cat] = round(np.nansum([categorias[year_month][cat], row.monto]), 2)
                 elif isinstance(v, dict):
                     for subcat, vv in v.items():
                         for mystr in vv:
                             if mystr in row.descripcion:
-                                categorias[year_month][cat][subcat] = np.nansum([categorias[year_month][cat][subcat], row.monto])
+                                categorias[year_month][cat][subcat] = round(np.nansum([categorias[year_month][cat][subcat], row.monto]), 2)
 
 
             # balance
-            # balance[year_month] = np.nansum([balance[year_month], row.monto])
-            balance[year_month]['balance'] = np.nansum([balance[year_month]['balance'], row.monto])
+            # balance[year_month] = round(np.nansum([balance[year_month], row.monto]), 2)
+            balance[year_month]['balance'] = round(np.nansum([balance[year_month]['balance'], row.monto]), 2)
 
             # ingresos y egresos
             if row.monto > 0:
-                # ingresos[year_month] = np.nansum([ingresos[year_month], row.monto])
-                balance[year_month]['ingresos'] = np.nansum([balance[year_month]['ingresos'], row.monto])
+                # ingresos[year_month] = round(np.nansum([ingresos[year_month], row.monto]), 2)
+                balance[year_month]['ingresos'] = round(np.nansum([balance[year_month]['ingresos'], row.monto]), 2)
             else:
-                # egresos[year_month] = np.nansum([egresos[year_month], row.monto])
-                balance[year_month]['egresos'] = np.nansum([balance[year_month]['egresos'], row.monto])
+                # egresos[year_month] = round(np.nansum([egresos[year_month], row.monto]), 2)
+                balance[year_month]['egresos'] = round(np.nansum([balance[year_month]['egresos'], row.monto]), 2)
+
+        # Ordeno el dict de tarjetas por nombre de tarjeta para evitar problemas de orden
+        # cuando se llena la tabla del template
+        tarjetas[year_month] = dict(OrderedDict(sorted(tarjetas[year_month].items(), key=lambda t: t[0])))
 
     id_count = 0
     for i, v in categorias.items():
+        # i 2016-09-01 00:00:00
+        # v {'Servicios': {'Arba': 0, 'Aysa': -333.61}, 'Impuestos': {'Sircreb': -110.98}, 'Compras con débito': -7496.51, 'Extracciones': -15500.0}
+
         for ii, vv in v.items():
+            # ii Impuestos
+            # vv {'Sircreb': -7.0}
+
             if isinstance(vv, dict):
-                categorias[i][ii]['total'] = np.nansum(vv.values())
+                categorias[i][ii]['total'] = round(np.nansum(list(vv.values())), 2)
                 categorias[i][ii]['modal_id'] = id_count
                 id_count += 1
 
@@ -157,7 +168,6 @@ def balance():
              'sircreb': sorted(sircreb.items(), reverse=True),
              'tarjetas': sorted(tarjetas.items(), reverse=True),
              })
-
 
 
 
@@ -185,6 +195,7 @@ def add_attachment(request):
     from .xls_parser import get_movimientos
     if request.method == "POST":
         files = request.FILES.getlist('myfiles')
+        c = 0
         for a_file in files:
             print(a_file)
             instance = DataFile(

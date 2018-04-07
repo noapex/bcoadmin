@@ -22,6 +22,7 @@ class Detalle(TimeStampedModel):
     cuenta = models.CharField('Cuenta', max_length=50)
     descripcion = models.CharField('Descripción', max_length=200)
     monto = models.FloatField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
 
     def __unicode__(self):
         return str(self.descripcion)

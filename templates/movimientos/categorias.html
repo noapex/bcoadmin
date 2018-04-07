@@ -23,12 +23,12 @@
                                     {% if idx != 'total' and idx != 'modal_id' %}
                                         <tr>
                                             <td>{{ idx }}</td>
-                                            <td>{{ val|intcomma }}</td>
+                                            <td>{{ val }}</td>
                                         </tr>
                                     {% endif %}
                                 {% endfor %}
                             </table>
-                            <p><b>Total: {{ vv.total|intcomma }}</b></p>
+                            <p><b>Total: {{ vv.total }}</b></p>
 
                         </div>
                         <div class="modal-footer">

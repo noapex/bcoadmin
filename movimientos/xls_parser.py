@@ -56,7 +56,8 @@ def get_movimientos(myfile):
         # df.to_sql
         try:
             df.columns = columns
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            print('Error:', e)
             return False
         # df.drop('saldo_pesos', axis=1, inplace=True)
         # TODO: agarrar los mov de las col que no son 'monto' (c ahorro en pesos)

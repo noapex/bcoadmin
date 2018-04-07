@@ -47,12 +47,12 @@
 
             <ul class="collapsible collapsible-accordion">
                 <li>
-                <li><a class="collapsible-header waves-effect waves-blue "  data-activates="dropdown-years"><i class="material-icons ">date_range</i>Mes
+                <li><a class="collapsible-header waves-effect waves-blue "  data-activates="dropdown-months"><i class="material-icons ">date_range</i>Mes
 {#                <li><a class="collapsible-header waves-effect waves-blue " href="#!" data-activates="dropdown-years">Año<i class="material-icons">date_range</i></a></li>#}
                     <i class="material-icons right">arrow_drop_down</i></a>
                     <div class="collapsible-body z-depth-3">
                         <ul>
-                            <li><a class="waves-effect waves-blue" href="/2017/12">Diciembre</a></li>
+                            <li><a class="waves-effect waves-blue" href="/2017/12">Dicfiembre</a></li>
                             <li><a class="waves-effect waves-blue" href="/2017/11">Noviembre</a></li>
                             <li><a class="waves-effect waves-blue" href="/2017/10">Octubre</a></li>
                             <li><a class="waves-effect waves-blue" href="/2017/09">Septiembre</a></li>
@@ -80,18 +80,11 @@
         <!-- Dropdown Structure -->
 
     <ul id="dropdown-months" class="dropdown-content">
-        <li><a href="/2017/12">Diciembre</a></li>
-        <li><a href="/2017/11">Noviembre</a></li>
-        <li><a href="/2017/10">Octubre</a></li>
-        <li><a href="/2017/09">Septiembre</a></li>
-        <li><a href="/2017/08">Agosto</a></li>
-        <li><a href="/2017/07">Julio</a></li>
-        <li><a href="/2017/06">Junio</a></li>
-        <li><a href="/2017/05">Mayo</a></li>
-        <li><a href="/2017/04">Abril</a></li>
-        <li><a href="/2017/03">Marzo</a></li>
-        <li><a href="/2017/02">Febrero</a></li>
-        <li><a href="/2017/01">Enero</a></li>
+    {% if mymonths %}
+      {% for m in mymonths %}
+          <li><a class="waves-effect waves-blue" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
+      {% endfor %}
+    {% endif %}
     </ul>
 
     <nav class="nav-extended  teal lighten-2">
