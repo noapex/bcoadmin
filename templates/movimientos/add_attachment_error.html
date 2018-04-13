@@ -1,0 +1,10 @@
+{% extends 'movimientos/base.html' %}
+{% load staticfiles %}
+
+{% block title %}Error de upload{% endblock %}
+
+{% block content %}
+    <h1>Error!</h1>
+    <p>{{ msg }}</p>
+    <a href="{% url "add_attachment" %}">Agregar archivo</a>
+{% endblock %}

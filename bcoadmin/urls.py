@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 from django.contrib import admin
-from movimientos.views import DetalleMonthArchiveView, add_attachment, add_attachment_done, wrapper_view
+from movimientos.views import DetalleMonthArchiveView, add_attachment, wrapper_view
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -24,7 +24,6 @@ urlpatterns = [
     # url(r'^balance/$', balance, name='dashboard'),
     url(r'^$', wrapper_view, {'operation': 'dashboard'}, name='main_view'),
     url(r'^upload/', add_attachment, name='add_attachment'),
-    url(r'^upload_done/', add_attachment_done, name='add_attachment_done'),
     url(r'^(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
         DetalleMonthArchiveView.as_view(month_format='%m'),
         name="detalle_month_numeric2"),

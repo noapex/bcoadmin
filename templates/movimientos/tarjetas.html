@@ -16,6 +16,7 @@
                 {% for dd, vv in v.items %}
                     <th>{{ dd|title }}</th>
                 {% endfor %}
+                <th>Detalle</th>
               {% endfor %}
 
           </tr>
@@ -24,10 +25,11 @@
 
         {% for d, v in tarjetas %}
             <tr>
-        <td>{{ d|date:"M Y" }}</td>
+        <td>{{ d|date:"F 'y" }}</td>
             {% for dd, vv in v.items %}
                 <td>{{ vv|intcomma }}</td>
             {% endfor %}
+            <td><a class="btn-floating" href="{{ d|date:"/Y/m/" }}"><i class="material-icons">blur_linear</i></a></td>
             </tr>
         {% endfor %}
 

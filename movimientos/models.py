@@ -27,6 +27,26 @@ class Detalle(TimeStampedModel):
     def __unicode__(self):
         return str(self.descripcion)
 
+
+class MovimientoIgnorado(TimeStampedModel):
+    descripcion = models.CharField('Descripción', max_length=200)
+    string = models.CharField('String', max_length=200)
+    regex = models.BooleanField(default=True)
+
+    def __unicode__(self):
+        return str(self.descripcion)
+
+
+class Tarjeta(TimeStampedModel):
+    nombre = models.CharField('Descripción', max_length=200)
+    codigo = models.CharField('Código', max_length=200)
+
+    def __unicode__(self):
+        return str(self.descripcion)
+
+
+
+
 class DataFile(models.Model):
     data = models.FileField()
 

@@ -53,7 +53,7 @@
                     <th>{{ dd|title }}</th>
                 {% endfor %}
             {% endfor %}
-
+            <th>Detalle</th>
         </tr>
         </thead>
         <tbody>
@@ -74,6 +74,7 @@
                         <td>{{ vv|intcomma }}</td>
                     {% endif %}
                 {% endfor %}
+                <td><a class="btn-floating" href="{{ d|date:"/Y/m/" }}"><i class="material-icons">blur_linear</i></a></td>
             </tr>
         {% endfor %}
 

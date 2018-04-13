@@ -111,9 +111,10 @@ def balance():
             # tarjetas
             for t, n in my_tarjetas.items():
                 if n in row.descripcion:
-                    tmp_dict = tarjetas[year_month].copy()
-                    tmp_dict.update({t: row.monto})
-                    tarjetas[year_month] = tmp_dict
+                    if t in tarjetas[year_month]:
+                        tarjetas[year_month][t] = tarjetas[year_month][t] + row.monto
+                    else:
+                        tarjetas[year_month].update({t: row.monto})
                     # python 3 solamente:
                     # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
 
@@ -145,6 +146,9 @@ def balance():
         # Ordeno el dict de tarjetas por nombre de tarjeta para evitar problemas de orden
         # cuando se llena la tabla del template
         tarjetas[year_month] = dict(OrderedDict(sorted(tarjetas[year_month].items(), key=lambda t: t[0])))
+
+    for d, t in tarjetas.items():
+        t['total'] = round(sum(t.values()), 2)
 
     id_count = 0
     for i, v in categorias.items():
@@ -186,25 +190,23 @@ def wrapper_view(request, operation):
         return render(request, "movimientos/dashboard.html", my_data)
 
 
-
-def add_attachment_done(request):
-    return render_to_response('movimientos/add_attachment_done.html')
-
-
 def add_attachment(request):
     from .xls_parser import get_movimientos
     if request.method == "POST":
         files = request.FILES.getlist('myfiles')
-        c = 0
-        for a_file in files:
-            print(a_file)
-            instance = DataFile(
-                data=a_file
-            )
-            instance.save()
-            filename = instance.data.path
-            get_movimientos(filename)
-        return redirect("add_attachment_done")
-
+        if len(files) > 0:
+            c = 0
+            for a_file in files:
+                c += 1
+                print(a_file)
+                instance = DataFile(
+                    data=a_file
+                )
+                instance.save()
+                filename = instance.data.path
+                if not get_movimientos(filename):
+                    return render_to_response('movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
+            print('done')
+            return render_to_response('movimientos/add_attachment_done.html', {'count': c})
     return render(request, "movimientos/add_attachment.html")
 

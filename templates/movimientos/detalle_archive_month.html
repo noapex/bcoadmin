@@ -34,6 +34,7 @@
             <th>Código</th>
             <th>Descripción</th>
             <th>Monto</th>
+            <th>Editar</th>
         </tr>
         </thead>
 
@@ -45,6 +46,7 @@
                 <td>{{ detalle.codigo }}</td>
                 <td>{{ detalle.descripcion }}</td>
                 <td>{{ detalle.monto|intcomma }}</td>
+                <td><a class="btn-floating" href="/admin/movimientos/detalle/{{ detalle.id }}/change/"><i class="material-icons">blur_linear</i></a></td>
             </tr>
         {% endfor %}
         </tbody>
