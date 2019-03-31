@@ -118,6 +118,9 @@ def balance():
                     # python 3 solamente:
                     # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
 
+                if t not in tarjetas[year_month]:
+                    tarjetas[year_month][t] = 0
+
             for cat, v in categorias_gastos.items():
 
                 if isinstance(v, list):
@@ -163,7 +166,7 @@ def balance():
                 categorias[i][ii]['total'] = round(np.nansum(list(vv.values())), 2)
                 categorias[i][ii]['modal_id'] = id_count
                 id_count += 1
-
+                
     return ({'balance': sorted(balance.items(), reverse=True),
              'categorias': sorted(categorias.items(), reverse=True),
              'ingresos': sorted(ingresos.items(), reverse=True),
