@@ -8,6 +8,7 @@ from .models import DataFile, Detalle
 import numpy as np
 import pandas as pd
 import datetime
+import re
 from django.conf import settings
 from collections import OrderedDict
 import math
@@ -51,7 +52,7 @@ def balance():
 
         try:
             for ign in ignore:
-                if ign in row.descripcion:
+                if re.match('.*{}.*'.format(ign), row.descripcion, re.IGNORECASE):
                     print('Mov. ignorado:', row.descripcion)
                     raise StopLooking()
         except StopLooking:
@@ -77,7 +78,8 @@ def balance():
                     categorias[year_month][cat] = 0
 
                     for vv in v:
-                        if vv in row.descripcion:
+                        print(vv, 'en', row.descripcion)
+                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE):
                             categorias[year_month][cat] = row.monto
                 elif isinstance(v, dict):
                     categorias[year_month][cat] = dict()
@@ -86,13 +88,14 @@ def balance():
                         categorias[year_month][cat][subcat] = 0
 
                         for mystr in vv:
-                            if mystr in row.descripcion:
+                            print(mystr, 'en', row.descripcion)
+                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
                                 categorias[year_month][cat][subcat] = row.monto
 
 
             # tarjetas
             for t, n in my_tarjetas.items():
-                if n in row.descripcion:
+                if re.match('.*{}.*'.format(n), row.descripcion, re.IGNORECASE):
                     tarjetas[year_month] = {t: row.monto}
                 else:
                     if year_month not in tarjetas:
@@ -115,7 +118,7 @@ def balance():
         else:
             # tarjetas
             for t, n in my_tarjetas.items():
-                if n in row.descripcion:
+                if re.match('.*{}.*'.format(n), row.descripcion, re.IGNORECASE):
                     if t in tarjetas[year_month]:
                         tarjetas[year_month][t] = tarjetas[year_month][t] + row.monto
                     else:
@@ -130,12 +133,12 @@ def balance():
 
                 if isinstance(v, list):
                     for vv in v:
-                        if vv in row.descripcion:
+                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE):
                             categorias[year_month][cat] = round(np.nansum([categorias[year_month][cat], row.monto]), 2)
                 elif isinstance(v, dict):
                     for subcat, vv in v.items():
                         for mystr in vv:
-                            if mystr in row.descripcion:
+                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
                                 categorias[year_month][cat][subcat] = round(np.nansum([categorias[year_month][cat][subcat], row.monto]), 2)
 
 
