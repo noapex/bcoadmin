@@ -6,9 +6,14 @@ from django.shortcuts import redirect, render
 from django.shortcuts import render_to_response
 from .models import DataFile, Detalle
 import numpy as np
+import pandas as pd
 import datetime
 from django.conf import settings
 from collections import OrderedDict
+import math
+from django.db.models import Q
+from datetime import timedelta
+
 
 class DetalleMonthArchiveView(MonthArchiveView):
     queryset = Detalle.objects.filter(activo=True)
@@ -47,7 +52,7 @@ def balance():
         try:
             for ign in ignore:
                 if ign in row.descripcion:
-                    print('ign', row.descripcion)
+                    print('Mov. ignorado:', row.descripcion)
                     raise StopLooking()
         except StopLooking:
             continue
@@ -193,23 +198,49 @@ def wrapper_view(request, operation):
         return render(request, "movimientos/dashboard.html", my_data)
 
 
+def update_movimientos(file_df):
+    added_movs = list()
+    for idx, row in file_df.iterrows():
+        if math.isnan(row['monto']):
+            row['monto'] = None
+        # if not Detalle.objects.filter(codigo=idx, descripcion=row['descripcion'], monto=row['monto']).exists():
+        if not Detalle.objects.filter(Q(codigo=idx, monto=row['monto'], fecha=row['fecha']) |
+                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=1)) |
+                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=2)) |
+                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=1)) |
+                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=2))).exists():
+            Detalle.objects.create(codigo=idx, fecha=row['fecha'], cuenta=row['cuenta'], descripcion=row['descripcion'],
+                                  monto=row['monto'])
+            added_movs.append({'codigo': idx, 'fecha': row['fecha'], 'cuenta': row['cuenta'], 'descripcion': row['descripcion'], 'monto': row['monto']})
+    return added_movs
+
 def add_attachment(request):
     from .xls_parser import get_movimientos
+    import traceback
+
     if request.method == "POST":
         files = request.FILES.getlist('myfiles')
+        added_movs = list()
         if len(files) > 0:
-            c = 0
+            file_count = 0
             for a_file in files:
-                c += 1
-                print(a_file)
+                file_count += 1
                 instance = DataFile(
                     data=a_file
                 )
                 instance.save()
                 filename = instance.data.path
-                if not get_movimientos(filename):
+
+                try:
+                    file_df = get_movimientos(filename)
+                except:
+                    print(traceback.format_exc())
+
+                if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
                     return render_to_response('movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
-            print('done')
-            return render_to_response('movimientos/add_attachment_done.html', {'count': c})
+
+                else:
+                    added_movs.extend(update_movimientos(file_df))
+            return render_to_response('movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
     return render(request, "movimientos/add_attachment.html")
 

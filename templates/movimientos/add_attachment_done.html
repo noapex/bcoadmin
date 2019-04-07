@@ -1,10 +1,40 @@
 {% extends 'movimientos/base.html' %}
 {% load staticfiles %}
+{% load humanize %}
 
 {% block title %}Se agregaron varios archivos!{% endblock %}
 
 {% block content %}
     <h1>Joya!</h1>
-    <p>Se agregaron {{ count }} archivos</p>
+    <p>{{ mov_count }} movimiento{{ mov_count|pluralize }} agregado{{ mov_count|pluralize }} de {{ file_count }} archivo{{ file_count|pluralize }} procesado{{ file_count|pluralize }}</p>
+
+    {% if mov_count > 0 %}
+    <table class="highlight">
+        <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Monto</th>
+            <th>Editar</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        {% for detalle in added_movs %}
+            <tr>
+                <td>{{ detalle.fecha|date:"d/m" }}</td>
+                <td>{{ detalle.codigo }}</td>
+                <td>{{ detalle.descripcion }}</td>
+                <td>{{ detalle.monto|intcomma }}</td>
+                <td><a class="btn-floating" href="/admin/movimientos/detalle/{{ detalle.id }}/change/"><i class="material-icons">blur_linear</i></a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+
+    </table>
+    {% endif %}
+    <hr>
     <a href="{% url "add_attachment" %}">Agregar más</a>
+    <hr>
 {% endblock %}

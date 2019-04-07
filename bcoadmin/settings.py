@@ -157,6 +157,7 @@ CATEGORIAS_GASTOS = {'Servicios':
                      }
 
 
+ALLOWED_HOSTS = ['127.0.0.1', '10.7.0.10', '192.168.0.139']
 try:
     from .local_settings import *
 except ImportError:
