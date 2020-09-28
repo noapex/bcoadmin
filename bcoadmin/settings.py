@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'movimientos',
     'django.contrib.humanize',
+    'mptt',
 ]
 
 MIDDLEWARE = [
@@ -67,6 +68,10 @@ TEMPLATES = [
                 # 'django.core.context_processors.static',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'libraries':{
+                'util': 'movimientos.templatetags.util',
+
+            }
         },
     },
 ]
@@ -157,7 +162,7 @@ CATEGORIAS_GASTOS = {'Servicios':
                      }
 
 
-ALLOWED_HOSTS = ['127.0.0.1', '10.7.0.10', '192.168.0.139']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.7.0.10', '192.168.0.139']
 try:
     from .local_settings import *
 except ImportError:

@@ -1,47 +1,146 @@
 {% extends 'movimientos/base.html' %}
-
-{% load staticfiles %}
+{% load util %}
+{% load static %}
 {% load humanize %}
 {% block title %}Balance{% endblock %}
 
+{% block extra_head_content  %}
+    {{ block.super }}
+
+    <!-- materialize stylesheet & icon font -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <!-- materialize theme -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/css/theme.materialize.min.css">
+
+    <!-- tablesorter plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.min.js"></script>
+
+    <!-- tablesorter widget file - loaded after the plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.widgets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/widgets/widget-math.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/css/bcoadmin.css" />
+
+{% endblock %}
 {% block content %}
     {% for d, v in categorias %}
         {% for dd, vv in v.items %}
             {% if vv|length > 0 %}
                 {% if vv.total != 0 %}
+
+{#                    Primeros modales#}
                     <div id="modal{{ vv.modal_id }}" class="modal">
                         <div class="modal-content">
                             <h4>{{ dd }} - {{ d|date:"F Y" }}</h4>
-                            <table class="highlight">
+                            <table class="highlight sorted-table">
                                 <thead>
                                 <tr>
-                                    <th>Item</th>
-                                    <th>Monto</th>
+                                    <!-- modal sin movs. tiene categorias internas -->
+                                    {% if vv|length > 3 %}
+                                        <th>Item</th>
+                                        <th>Total</th>
+                                    {% else %}
+                                        <th>Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Monto</th>
+                                    {% endif %}
                                 </tr>
                                 </thead>
+                                <tbody>
                                 {% for idx, val in vv.items %}
                                     {% if idx != 'total' and idx != 'modal_id' %}
-                                        <tr>
-                                            <td>{{ idx }}</td>
-                                            <td>{{ val }}</td>
-                                        </tr>
+                                            {% if idx == 'movs' %}
+                                                {% for m in val %}
+                                                    <tr>
+                                                        <td>{{ m.fecha|date:"d/m" }}</td>
+                                                        <td>{{ m.descripcion }}</td>
+                                                        <td>{{ m.monto }}</td>
+                                                    </tr>
+                                                {% endfor%}
+                                            {% else %}
+                                            <tr>
+                                                <td><a class="modal-trigger" data-dismiss="modal" data-toggle="modal"  href="#modal{{ val.modal_id }}">{{ idx }} </a></td>
+                                                <td>{{ val.total }}</td>
+                                            </tr>
+                                            {% endif %}
                                     {% endif %}
                                 {% endfor %}
+                                </tbody>
+                                 {% if vv|length > 3 %}
+                                <tbody class="tablesorter-infoOnly">
+                                                        <tr>
+                                                          <th colspan="1">Total</th>
+                                                          <th data-math="above-sum">above-sum</th>
+                                                        </tr>
+                                                      </tbody>
+                                     {% else %}
+                                     <tbody class="tablesorter-infoOnly">
+                                                        <tr>
+                                                          <th colspan="2">Total</th>
+                                                          <th data-math="above-sum">above-sum</th>
+                                                        </tr>
+                                                      </tbody>
+                                     {% endif %}
                             </table>
-                            <p><b>Total: {{ vv.total }}</b></p>
 
                         </div>
                         <div class="modal-footer">
                             <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Cerrar</a>
                         </div>
                     </div>
+
+                    {% if vv|length > 3 %}
+                        {% for item in vv.items %}
+                            {% for i in item %}
+                                {% if i|get_type == 'dict' %}
+                                    {% if i.total != 0 %}
+
+                                        <div id="modal{{ i.modal_id }}" class="modal">
+                                            <div class="modal-content">
+                                                <h4>{{ dd }} - {{ d|date:"F Y" }}</h4>
+                                                <table class="highlight sorted-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th>Fecha</th>
+                                                        <th>Descripción</th>
+                                                        <th>Monto</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    {% for m in i.movs %}
+                                                    <tr>
+                                                        <td>{{ m.fecha|date:"d/m" }}</td>
+                                                        <td>{{ m.descripcion }}</td>
+                                                        <td>{{ m.monto }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                    </tbody>
+
+                                                      <tbody class="tablesorter-infoOnly">
+                                                        <tr>
+                                                          <th colspan="2">Total</th>
+                                                          <th data-math="above-sum">above-sum</th>
+                                                        </tr>
+                                                      </tbody>
+                                                </table>
+                                                <p><b>Total: {{ vv.total }}</b></p>
+
+                                            </div>
+                                            <div class="modal-footer">
+                                                <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Cerrar</a>
+                                            </div>
+                                        </div>
+
+                                    {%endif%}
+                                {%endif%}
+                            {%endfor%}
+                        {%endfor%}
+                    {%endif%}
+
                 {% endif %}
             {% endif %}
         {% endfor %}
     {% endfor %}
-
-
-
 
 
     <table class="highlight">
@@ -65,7 +164,7 @@
                     {% if vv|length > 0 %}
                         {% if vv.total != 0 %}
                             {#                            <td>{{ vv.total }} <a class="btn-floating x-btn-small waves-effect waves-light btn modal-trigger" href="#modal{{ vv.modal_id }}"><i class="material-icons">add</i></a></td>#}
-                            <td><a class="modal-trigger" href="#modal{{ vv.modal_id }}">{{ vv.total|intcomma }} </a></td>
+                            <td><a class="modal-trigger" href="#modal{{ vv.modal_id }}">{{ vv.total|intcomma }}</a></td>
                         {% else %}
                             <td>{{ vv.total|intcomma }}</td>
                         {% endif %}
@@ -86,6 +185,51 @@
             // the "href" attribute of the modal trigger must specify the modal ID that wants to be triggered
             $('.modal').modal();
         });
+
+
+           $(function() {
+
+        $(".sorted-table").tablesorter({
+
+            usNumberFormat : false,
+            theme : "materialize",
+            widthFixed: true,
+            // widget code contained in the jquery.tablesorter.widgets.js file
+            // use the zebra stripe widget if you plan on hiding any rows (filter widget)
+            widgets : [ "filter", "math" ],
+
+            widgetOptions : {
+                // using the default zebra striping class name, so it actually isn't included in the theme variable above
+                // this is ONLY needed for materialize theming if you are using the filter widget, because rows are hidden
+                {#          zebra : ["even", "odd"],#}
+
+                // reset filters button
+                filter_reset : ".reset",
+
+                // extra css class name (string or array) added to the filter element (input or select)
+                // select needs a "browser-default" class or it gets hidden
+                filter_cssFilter: ["", "", "browser-default"],
+
+
+                math_complete : function($cell, wo, result, value, arry) {
+                    var txt = '<span class="align-decimal">' +
+                        ( value === wo.math_none ? '' : '$ ' ) +
+                        result + '</span>';
+                    if ($cell.attr('data-math') === 'all-sum') {
+                        // when the "all-sum" is processed, add a count to the end
+                        return txt + ' (Sum of ' + arry.length + ' cells)';
+                    }
+                    return txt;
+                },
+                math_completed : function(c) {
+                    // c = table.config
+                    // called after all math calculations have completed
+                    console.log( 'math calculations complete', c.$table.find('[data-math="all-sum"]:first').text() );
+                },
+            }
+        })
+
+    });
     </script>
 
 

@@ -3,7 +3,6 @@ from django.views.generic.dates import MonthArchiveView
 from django.views.generic.edit import FormView
 from .forms import FileFieldForm
 from django.shortcuts import redirect, render
-from django.shortcuts import render_to_response
 from .models import DataFile, Detalle
 import numpy as np
 import pandas as pd
@@ -14,7 +13,8 @@ from collections import OrderedDict
 import math
 from django.db.models import Q
 from datetime import timedelta
-
+import locale
+locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 class DetalleMonthArchiveView(MonthArchiveView):
     queryset = Detalle.objects.filter(activo=True)
@@ -47,7 +47,7 @@ def balance():
     class StopLooking(Exception):
         pass
 
-    for row in Detalle.objects.filter(activo=True).order_by('fecha'):
+    for row in Detalle.objects.filter(activo=True, fecha__date__gt=datetime.date(2018, 5, 1)).order_by('fecha'):
         # row.monto = float("{0:.2f}".format(row.monto))
 
         try:
@@ -73,35 +73,48 @@ def balance():
             # print(row.monto)
 
             for cat, v in categorias_gastos.items():
-
+                # categoria simple
                 if isinstance(v, list):
-                    categorias[year_month][cat] = 0
+                    categorias[year_month][cat] = dict()
+                    categorias[year_month][cat]['total'] = 0
+                    categorias[year_month][cat]['movs'] = list()
 
+                    if isinstance(v, str):
+                        v = [v]
                     for vv in v:
                         print(vv, 'en', row.descripcion)
-                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE):
-                            categorias[year_month][cat] = row.monto
+                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat]['movs']:
+                            # categorias[year_month][cat] = row.monto
+                            categorias[year_month][cat]['total'] = row.monto
+                            categorias[year_month][cat]['movs'].append(row)
+
+                # categoria c subcat
                 elif isinstance(v, dict):
                     categorias[year_month][cat] = dict()
 
                     for subcat, vv in v.items():
-                        categorias[year_month][cat][subcat] = 0
+                        categorias[year_month][cat][subcat] = dict()
+                        categorias[year_month][cat][subcat]['total'] = 0
+                        categorias[year_month][cat][subcat]['movs'] = list()
 
+                        if isinstance(vv, str):
+                            vv = [vv]
                         for mystr in vv:
-                            print(mystr, 'en', row.descripcion)
-                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
-                                categorias[year_month][cat][subcat] = row.monto
+                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat][subcat]['movs']:
+                                categorias[year_month][cat][subcat]['total'] = row.monto
+                                categorias[year_month][cat][subcat]['movs'].append(row)
 
 
             # tarjetas
             for t, n in my_tarjetas.items():
-                if re.match('.*{}.*'.format(n), row.descripcion, re.IGNORECASE):
-                    tarjetas[year_month] = {t: row.monto}
-                else:
-                    if year_month not in tarjetas:
-                        tarjetas[year_month] = {t: 0}
+                for mystr in n:
+                    if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
+                        tarjetas[year_month] = {t: row.monto}
                     else:
-                        tarjetas[year_month].update({t: 0})
+                        if year_month not in tarjetas:
+                            tarjetas[year_month] = {t: 0}
+                        else:
+                            tarjetas[year_month].update({t: 0})
 
             # ingresos y egresos
             if row.monto > 0:
@@ -118,28 +131,38 @@ def balance():
         else:
             # tarjetas
             for t, n in my_tarjetas.items():
-                if re.match('.*{}.*'.format(n), row.descripcion, re.IGNORECASE):
-                    if t in tarjetas[year_month]:
-                        tarjetas[year_month][t] = tarjetas[year_month][t] + row.monto
-                    else:
-                        tarjetas[year_month].update({t: row.monto})
-                    # python 3 solamente:
-                    # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
+                for mystr in n:
+                    if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
+                        if t in tarjetas[year_month]:
+                            tarjetas[year_month][t] = tarjetas[year_month][t] + row.monto
+                        else:
+                            tarjetas[year_month].update({t: row.monto})
+                        # python 3 solamente:
+                        # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
 
-                if t not in tarjetas[year_month]:
-                    tarjetas[year_month][t] = 0
+                    if t not in tarjetas[year_month]:
+                        tarjetas[year_month][t] = 0
 
             for cat, v in categorias_gastos.items():
-
+                # cat simple
                 if isinstance(v, list):
                     for vv in v:
-                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE):
-                            categorias[year_month][cat] = round(np.nansum([categorias[year_month][cat], row.monto]), 2)
+                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat]['movs']:
+                            # categorias[year_month][cat] = round(np.nansum([categorias[year_month][cat], row.monto]), 2)
+                            categorias[year_month][cat]['total'] = round(np.nansum([categorias[year_month][cat]['total'], row.monto]), 2)
+                            categorias[year_month][cat]['movs'].append(row)
+
+                # cat con subcat
                 elif isinstance(v, dict):
                     for subcat, vv in v.items():
-                        for mystr in vv:
-                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
-                                categorias[year_month][cat][subcat] = round(np.nansum([categorias[year_month][cat][subcat], row.monto]), 2)
+                        if not isinstance(mystr, list):
+                            mystr = [mystr]
+                            if isinstance(vv, str):
+                                vv = [vv]
+                            for mystr in vv:
+                                if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat][subcat]['movs']:
+                                    categorias[year_month][cat][subcat]['total'] = round(np.nansum([categorias[year_month][cat][subcat]['total'], row.monto]), 2)
+                                    categorias[year_month][cat][subcat]['movs'].append(row)
 
 
             # balance
@@ -169,12 +192,25 @@ def balance():
         for ii, vv in v.items():
             # ii Impuestos
             # vv {'Sircreb': -7.0}
+            # import pdb; pdb.set_trace()
 
             if isinstance(vv, dict):
-                categorias[i][ii]['total'] = round(np.nansum(list(vv.values())), 2)
-                categorias[i][ii]['modal_id'] = id_count
-                id_count += 1
-                
+                # categorias[i][ii]['total'] = round(np.nansum(list(vv.values())), 2)
+                # categorias[i][ii]['total'] = round(sum([sum(y.values()) for x, y in vv.items()]), 2)
+                if 'total' in vv:
+                    categorias[i][ii]['total'] = vv['total']
+                else:
+                    categorias[i][ii]['total'] = round(sum([y['total'] for x, y in vv.items()]), 2)
+
+                if len(vv) > 3:
+                    for xx in vv:
+                        if isinstance(categorias[i][ii][xx], dict):
+                            categorias[i][ii][xx]['modal_id'] = id_count
+                            id_count += 1
+
+            categorias[i][ii]['modal_id'] = id_count
+            id_count += 1
+
     return ({'balance': sorted(balance.items(), reverse=True),
              'categorias': sorted(categorias.items(), reverse=True),
              'ingresos': sorted(ingresos.items(), reverse=True),
@@ -189,13 +225,13 @@ def balance():
 def wrapper_view(request, operation):
     my_data = balance()
     if operation == 'dashboard':
-        return render_to_response("movimientos/balance.html", my_data)
+        return render(None, "movimientos/balance.html", my_data)
     elif operation == 'balance':
-        return render_to_response("movimientos/balance.html", my_data)
+        return render(None, "movimientos/balance.html", my_data)
     elif operation == 'tarjetas':
-        return render_to_response("movimientos/tarjetas.html", my_data)
+        return render(None, "movimientos/tarjetas.html", my_data)
     elif operation == 'categorias':
-        return render_to_response("movimientos/categorias.html", my_data)
+        return render(None, "movimientos/categorias.html", my_data)
     else:
         my_data['operation'] = 'detalle'
         return render(request, "movimientos/dashboard.html", my_data)
@@ -203,7 +239,10 @@ def wrapper_view(request, operation):
 
 def update_movimientos(file_df):
     added_movs = list()
+    #import pdb;pdb.set_trace()
     for idx, row in file_df.iterrows():
+        if isinstance(row['monto'], str):
+            row['monto'] = locale.atof(row['monto'])
         if math.isnan(row['monto']):
             row['monto'] = None
         # if not Detalle.objects.filter(codigo=idx, descripcion=row['descripcion'], monto=row['monto']).exists():
@@ -212,9 +251,9 @@ def update_movimientos(file_df):
                                       Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=2)) |
                                       Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=1)) |
                                       Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=2))).exists():
-            Detalle.objects.create(codigo=idx, fecha=row['fecha'], cuenta=row['cuenta'], descripcion=row['descripcion'],
+            d=Detalle.objects.create(codigo=idx, fecha=row['fecha'], cuenta=row['cuenta'], descripcion=row['descripcion'],
                                   monto=row['monto'])
-            added_movs.append({'codigo': idx, 'fecha': row['fecha'], 'cuenta': row['cuenta'], 'descripcion': row['descripcion'], 'monto': row['monto']})
+            added_movs.append({'codigo': idx, 'fecha': row['fecha'], 'cuenta': row['cuenta'], 'descripcion': row['descripcion'], 'monto': row['monto'], 'id': d.id})
     return added_movs
 
 def add_attachment(request):
@@ -240,10 +279,10 @@ def add_attachment(request):
                     print(traceback.format_exc())
 
                 if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
-                    return render_to_response('movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
+                    return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
 
                 else:
                     added_movs.extend(update_movimientos(file_df))
-            return render_to_response('movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
+            return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
     return render(request, "movimientos/add_attachment.html")
 

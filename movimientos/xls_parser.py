@@ -6,6 +6,7 @@ import math
 
 
 locale.setlocale(locale.LC_TIME, "es_AR.UTF-8")
+locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 
 def get_movimientos(myfile):
@@ -46,18 +47,31 @@ def get_movimientos(myfile):
                     modl_cols = mod_cols.extend([xls_cols[4], xls_cols[3]])
                     modl_cols = mod_cols.extend(xls_cols[5:])
 
+            print(row)
+
             # todo lo que no tenga fecha en la segunda columna no es un mov valido, se borra
             try:
-                row[1] = datetime.datetime.strptime(row[1], '%d/%m/%Y %H:%M')
+                row[1] = datetime.datetime.strptime(row[1], '%d/%m/%Y')
+                print(1)
                 # import pdb; pdb.set_trace()
             except:
+                print(2)
                 try:
                     if type(row[1]) is not datetime.datetime:
                         raise ValueError
                 except:
-                    to_delete.append(idx)
+                    try:
+                        print(3)
+                        row[1] = datetime.datetime.strptime(row[1], '%d/%m/%Y %H:%M')
+                    except:
+                        print(4)
+                        to_delete.append(idx)
 
             if idx not in to_delete:
+                if isinstance(row[5], str):
+                    row[5] = locale.atof(row[5])
+                if isinstance(row[6], str):
+                    row[6] = locale.atof(row[6])
                 # si el movimiento de monto es nan y si hay monto en cc_pesos, lo copiamos
                 if math.isnan(row[5]) and isinstance(row[6], (int, float)):
                     df.iloc[idx, 5] = row[6]
@@ -76,7 +90,10 @@ def get_movimientos(myfile):
         except (TypeError, ValueError) as e:
             print('Error:', e)
 
-        df['fecha'] = pd.to_datetime(df['fecha'], format='%d/%m/%Y %H:%M')
+        try:
+            df['fecha'] = pd.to_datetime(df['fecha'], format='%d/%m/%Y %H:%M')
+        except:
+            df['fecha'] = pd.to_datetime(df['fecha'], format='%d/%m/%Y')
         if cols_size == 9:
             df.drop('cc_pesos', axis=1, inplace=True)
             df.drop('saldo_pesos', axis=1, inplace=True)
@@ -88,6 +105,7 @@ def get_movimientos(myfile):
         df.index.name = None
         df_list.append(df)
 
+        pd.set_option('display.max_rows', None)
     return merge_dfs(df_list)
 
 
@@ -97,5 +115,5 @@ def merge_dfs(df_list):
     df.reset_index(inplace=True)
     df.drop(df.columns[5:], axis=1, inplace=True)
     df.columns = ['codigo','fecha','cuenta','descripcion', 'monto']
-    df = df.drop_duplicates('codigo', keep='last').set_index('codigo')
+    df = df.drop_duplicates(subset=['fecha','codigo'], keep='last').set_index('codigo')
     return df

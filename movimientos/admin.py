@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Detalle, DataFile
+from .models import Detalle, DataFile, Categoria
+from mptt.admin import DraggableMPTTAdmin
+from django.contrib import admin
+from mptt.admin import MPTTModelAdmin
 from .xls_parser import get_movimientos
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -39,4 +42,17 @@ class DataFileAdmin(admin.ModelAdmin):
     #         obj.save()
 
 
+#admin.site.register(Categoria, MPTTModelAdmin)
 
+admin.site.register(
+        Categoria,
+    DraggableMPTTAdmin,
+    list_display=(
+        'tree_actions',
+        'indented_title',
+        # ...more fields if you feel like it...
+    ),
+    list_display_links=(
+        'indented_title',
+    ),
+)
