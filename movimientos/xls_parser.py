@@ -80,11 +80,8 @@ def get_movimientos(myfile):
             df = df[mod_cols]
         df.drop(to_delete, inplace=True)
         df.replace('', np.nan, inplace=True)
-        # no sirve porque puede borrar columnas que ocasionalmente esten vacías como importe cc
-        # df.dropna(axis=1, how='all', inplace=True)
         df.drop(df.columns[0], axis=1, inplace=True)
         df.drop(df.columns[7:], axis=1, inplace=True)
-        # df.to_sql
         try:
             df.columns = columns
         except (TypeError, ValueError) as e:

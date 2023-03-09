@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.db import models
+from mptt.models import MPTTModel, TreeForeignKey
 from .xls_parser import get_movimientos
 
 
@@ -58,7 +59,6 @@ class DataFile(models.Model):
     def __str__(self):
         return str(self.data.url)
 
-from mptt.models import MPTTModel, TreeForeignKey
 
 class Categoria(MPTTModel):
     name = models.CharField(max_length=50, unique=True)

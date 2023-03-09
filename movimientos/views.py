@@ -7,13 +7,16 @@ from .models import DataFile, Detalle
 import numpy as np
 import pandas as pd
 import datetime
+import time
 import re
 from django.conf import settings
 from collections import OrderedDict
+from django.contrib.auth.decorators import login_required
 import math
 from django.db.models import Q
 from datetime import timedelta
 import locale
+from .get_movs import download_movs
 locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 class DetalleMonthArchiveView(MonthArchiveView):
@@ -47,7 +50,8 @@ def balance():
     class StopLooking(Exception):
         pass
 
-    for row in Detalle.objects.filter(activo=True, fecha__date__gt=datetime.date(2018, 5, 1)).order_by('fecha'):
+    today = datetime.date.today()
+    for row in Detalle.objects.filter(activo=True, fecha__date__gt=today-timedelta(days=365*2)).order_by('fecha'):
         # row.monto = float("{0:.2f}".format(row.monto))
 
         try:
@@ -69,8 +73,6 @@ def balance():
             year_month = datetime.datetime.strptime(year_month, '%Y%m')
             balance[year_month] = dict()
             categorias[year_month] = dict()
-            # print('\nMovimientos de %s:' % row.fecha.strftime('%B'))
-            # print(row.monto)
 
             for cat, v in categorias_gastos.items():
                 # categoria simple
@@ -82,7 +84,6 @@ def balance():
                     if isinstance(v, str):
                         v = [v]
                     for vv in v:
-                        print(vv, 'en', row.descripcion)
                         if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat]['movs']:
                             # categorias[year_month][cat] = row.monto
                             categorias[year_month][cat]['total'] = row.monto
@@ -166,15 +167,12 @@ def balance():
 
 
             # balance
-            # balance[year_month] = round(np.nansum([balance[year_month], row.monto]), 2)
             balance[year_month]['balance'] = round(np.nansum([balance[year_month]['balance'], row.monto]), 2)
 
             # ingresos y egresos
             if row.monto > 0:
-                # ingresos[year_month] = round(np.nansum([ingresos[year_month], row.monto]), 2)
                 balance[year_month]['ingresos'] = round(np.nansum([balance[year_month]['ingresos'], row.monto]), 2)
             else:
-                # egresos[year_month] = round(np.nansum([egresos[year_month], row.monto]), 2)
                 balance[year_month]['egresos'] = round(np.nansum([balance[year_month]['egresos'], row.monto]), 2)
 
         # Ordeno el dict de tarjetas por nombre de tarjeta para evitar problemas de orden
@@ -195,14 +193,11 @@ def balance():
             # import pdb; pdb.set_trace()
 
             if isinstance(vv, dict):
-                # categorias[i][ii]['total'] = round(np.nansum(list(vv.values())), 2)
-                # categorias[i][ii]['total'] = round(sum([sum(y.values()) for x, y in vv.items()]), 2)
                 if 'total' in vv:
                     categorias[i][ii]['total'] = vv['total']
                 else:
                     categorias[i][ii]['total'] = round(sum([y['total'] for x, y in vv.items()]), 2)
-
-                if len(vv) > 3:
+                if len(vv) > 2:
                     for xx in vv:
                         if isinstance(categorias[i][ii][xx], dict):
                             categorias[i][ii][xx]['modal_id'] = id_count
@@ -218,6 +213,7 @@ def balance():
              'extracciones': sorted(extracciones.items(), reverse=True),
              'sircreb': sorted(sircreb.items(), reverse=True),
              'tarjetas': sorted(tarjetas.items(), reverse=True),
+             'last_update': row.fecha,
              })
 
 
@@ -245,7 +241,6 @@ def update_movimientos(file_df):
             row['monto'] = locale.atof(row['monto'])
         if math.isnan(row['monto']):
             row['monto'] = None
-        # if not Detalle.objects.filter(codigo=idx, descripcion=row['descripcion'], monto=row['monto']).exists():
         if not Detalle.objects.filter(Q(codigo=idx, monto=row['monto'], fecha=row['fecha']) |
                                       Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=1)) |
                                       Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=2)) |
@@ -256,33 +251,60 @@ def update_movimientos(file_df):
             added_movs.append({'codigo': idx, 'fecha': row['fecha'], 'cuenta': row['cuenta'], 'descripcion': row['descripcion'], 'monto': row['monto'], 'id': d.id})
     return added_movs
 
+def sync(request):
+    from .xls_parser import get_movimientos
+    import traceback
+    import os
+    suffix = hex(int(time.time()))[2:]
+    try:
+        os.rename(f'{settings.MEDIA_ROOT}/UltimosMovimientos.xls', f'{settings.MEDIA_ROOT}/UltimosMovimientos_{suffix}.xls')
+    except:
+        pass
+
+    before = os.listdir(settings.MEDIA_ROOT)
+    download_movs(settings.MEDIA_ROOT)
+    after = os.listdir(settings.MEDIA_ROOT)
+    change = set(after) - set(before)
+    if len(change) == 0:
+        return render(None, 'movimientos/add_attachment_error.html', {'msg': "No se descargó el archivo"})
+    file_name = change.pop()
+    file_count = 1
+    file_df = get_movimientos(f'{settings.MEDIA_ROOT}/{file_name}')
+    suffix = hex(int(time.time()))[2:]
+    os.rename(f'{settings.MEDIA_ROOT}/{file_name}', f'{settings.MEDIA_ROOT}/{file_name.split(".")[0]}_{suffix}.xlsx')
+
+    if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
+        return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
+    else:
+        added_movs = update_movimientos(file_df)
+    return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
+
 def add_attachment(request):
     from .xls_parser import get_movimientos
     import traceback
 
-    if request.method == "POST":
-        files = request.FILES.getlist('myfiles')
-        added_movs = list()
-        if len(files) > 0:
-            file_count = 0
-            for a_file in files:
-                file_count += 1
-                instance = DataFile(
-                    data=a_file
-                )
-                instance.save()
-                filename = instance.data.path
+    files = request.FILES.getlist('myfiles')
+    added_movs = list()
+    if len(files) > 0:
+        file_count = 0
+        for a_file in files:
+            file_count += 1
+            instance = DataFile(
+                data=a_file
+            )
+            instance.save()
+            filename = instance.data.path
 
-                try:
-                    file_df = get_movimientos(filename)
-                except:
-                    print(traceback.format_exc())
+            try:
+                file_df = get_movimientos(filename)
+            except:
+                print(traceback.format_exc())
 
-                if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
-                    return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
+            if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
+                return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
 
-                else:
-                    added_movs.extend(update_movimientos(file_df))
-            return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
+            else:
+                added_movs.extend(update_movimientos(file_df))
+        return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
     return render(request, "movimientos/add_attachment.html")
 

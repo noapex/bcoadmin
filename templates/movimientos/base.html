@@ -1,4 +1,6 @@
+{#{% extends 'movimientos/auth.html' %}#}
 {% load static %}
+
 
 <!DOCTYPE html>
 <html>
@@ -23,6 +25,7 @@
 {#        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">#}
     {% block extra_head_content %}{% endblock %}
     </head>
+
     <body>
 {#        {{ request.session.month }}#}
 
@@ -54,6 +57,8 @@
 {#        <li><a class="dropdown-button" href="#!" data-activates="dropdown1">2017<i class="material-icons right">arrow_drop_down</i></a></li>#}
         <li><a class="btn-floating btn-large waves-effect teal" href="/upload">
         <i class="material-icons">add</i></a></li>
+        <li><a class="btn-floating btn-large waves-effect teal" href="/sync">
+        <i class="material-icons">sync</i></a></li>
 
       </ul>
     </div>
@@ -82,9 +87,9 @@
   </nav>
     <div class="content">
 	            <div class="container">
-                    {% block content %}
 
-                    {% endblock %}
+			{% block content %}
+			{% endblock %}
 
 	            </div>
 	        </div>

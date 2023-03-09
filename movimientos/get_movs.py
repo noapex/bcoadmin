@@ -64,7 +64,6 @@ def download_movs(path):
 	options.headless = True
 	options.add_experimental_option("prefs",prefs)
 	options.add_argument("--window-size=1920,1200")
-	total_actual = 224
 
 	d = webdriver.Chrome(options=options)
 	d.get('https://www2.personas.santander.com.ar/obp-webapp/angular/#!/login')
@@ -99,7 +98,9 @@ def download_movs(path):
 		ultimos_60 = find_with_timeout(d, '//*[@id="grilla"]/cuentas-inicio-movimientos/div[2]/obp-selector/div/ng-transclude/cuentas-buscador/form/div[2]/obp-boton/button', 10)
 		ultimos_60.click()
 		#sleep(1)
+		sleep(1)
 		descargar = find_with_timeout(d, '//*[@id="grilla"]/cuentas-inicio-movimientos/div[2]/div[4]/div[2]/footer/a[2]', 10)
+		sleep(1)
 		descargar.click()
 		#sleep(2)
 		#file_name = getDownLoadedFileName(d, 10)
