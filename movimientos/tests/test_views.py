@@ -368,6 +368,7 @@ class CategoriasPageTests(TestCase):
         self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-09&tipo=gasto&categoria={self.child.pk}")
         self.assertContains(r, "/movimientos/?moneda=ARS&mes=2026-08&tipo=gasto&categoria=none")
         self.assertNotContains(r, "mes=2026-07&tipo=gasto")  # zero cells are not links
+        self.assertContains(r, reverse("categorias_gestionar"))
 
     def test_usd_isolated(self):
         r = self.client.get(reverse("categorias") + "?moneda=USD")

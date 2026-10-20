@@ -1,0 +1,56 @@
+{% extends 'movimientos/base.html' %}
+{% block title %}Gestionar categorías{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h5>Gestionar categorías</h5>
+  <span>
+    <a class="btn teal" href="{% url 'categoria_nueva' %}">Nueva categoría</a>
+    <a class="btn-flat" href="{% url 'categorias' %}">Volver a Categorías</a>
+  </span>
+</div>
+<p class="nota">Cada cambio vuelve a clasificar todos los movimientos (salvo los asignados a mano).
+  Las reglas se evalúan por prioridad (menor primero); gana la primera que coincide.</p>
+
+<table class="abm">
+  <thead>
+    <tr><th>Categoría</th><th class="right-align">Movimientos</th><th>Reglas</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for i in items %}
+    <tr class="{% if i.cat.level == 0 %}raiz{% endif %}">
+      <td style="padding-left:{% widthratio i.cat.level 1 24 %}px">
+        {{ i.cat.name }}{% if i.reservada %} <small class="grey-text">(del sistema)</small>{% endif %}
+      </td>
+      <td class="right-align">{{ i.movimientos }}</td>
+      <td>
+        {% for r in i.reglas %}
+          {% include 'movimientos/_regla.html' %}
+        {% empty %}
+          <span class="grey-text">Sin reglas</span>
+        {% endfor %}
+        <div><a href="{% url 'regla_nueva' i.cat.pk %}"><i class="material-icons tiny">add</i> regla</a></div>
+      </td>
+      <td class="acciones">
+        <a href="{% url 'categoria_nueva' %}?parent={{ i.cat.pk }}" title="Nueva subcategoría"><i class="material-icons">create_new_folder</i></a>
+        <a href="{% url 'categoria_editar' i.cat.pk %}" title="Editar"><i class="material-icons">edit</i></a>
+        {% if not i.reservada %}
+        <form method="post" action="{% url 'categoria_borrar' i.cat.pk %}" onsubmit="return confirm('¿Borrar la categoría «{{ i.cat.name|escapejs }}» y sus reglas?');">
+          {% csrf_token %}
+          <button type="submit" class="btn-flat" title="Borrar"><i class="material-icons">delete</i></button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">Todavía no hay categorías.</td></tr>
+  {% endfor %}
+  {% if reglas_sin_categoria %}
+    <tr class="raiz">
+      <td><i>Reglas sin categoría</i></td><td></td>
+      <td>{% for r in reglas_sin_categoria %}{% include 'movimientos/_regla.html' %}{% endfor %}</td><td></td>
+    </tr>
+  {% endif %}
+  </tbody>
+</table>
+{% endblock %}

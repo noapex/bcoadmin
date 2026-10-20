@@ -95,3 +95,16 @@ table.matriz tfoot td { border-top: 2px solid #ccc; }
 table.matriz .toggle { color: inherit; vertical-align: middle; }
 h6.seccion { margin-top: 24px; font-weight: bold; }
 .nota { font-size: 0.9rem; color: #757575; }
+
+ul.mensajes { margin: 12px 0 0; }
+ul.mensajes li { padding: 8px 12px; margin: 4px 0; }
+table.abm td { vertical-align: top; padding: 6px 8px; }
+table.abm tr.raiz > td:first-child { font-weight: bold; }
+table.abm form, .regla form { display: inline; }
+table.abm .btn-flat { padding: 0 4px; height: auto; line-height: inherit; }
+table.abm td.acciones { white-space: nowrap; }
+table.abm td.acciones a, table.abm td.acciones button { color: #26a69a; }
+.regla { margin: 2px 0; }
+.regla code { background: #f3f3f3; padding: 0 4px; }
+.abm-form { max-width: 560px; margin-top: 16px; }
+.abm-campo { margin-bottom: 16px; }

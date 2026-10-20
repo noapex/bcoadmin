@@ -17,6 +17,7 @@ from django.urls import include, re_path
 from django.contrib import admin
 from django.views.generic import RedirectView
 from movimientos.views import categorias, dashboard, movimientos_list, upload, sync, tarjetas
+from movimientos import views_categorias as abm
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -28,6 +29,13 @@ urlpatterns = [
     re_path(r'^upload/', upload, name='upload'),
     re_path(r'^sync/', sync, name='sync'),
     re_path(r'^categorias/$', categorias, name='categorias'),
+    re_path(r'^categorias/gestionar/$', abm.categorias_gestionar, name='categorias_gestionar'),
+    re_path(r'^categorias/gestionar/nueva/$', abm.categoria_nueva, name='categoria_nueva'),
+    re_path(r'^categorias/gestionar/(?P<pk>[0-9]+)/editar/$', abm.categoria_editar, name='categoria_editar'),
+    re_path(r'^categorias/gestionar/(?P<pk>[0-9]+)/borrar/$', abm.categoria_borrar, name='categoria_borrar'),
+    re_path(r'^categorias/gestionar/(?P<pk>[0-9]+)/reglas/nueva/$', abm.regla_nueva, name='regla_nueva'),
+    re_path(r'^categorias/gestionar/reglas/(?P<pk>[0-9]+)/editar/$', abm.regla_editar, name='regla_editar'),
+    re_path(r'^categorias/gestionar/reglas/(?P<pk>[0-9]+)/borrar/$', abm.regla_borrar, name='regla_borrar'),
     re_path(r'^tarjetas/$', tarjetas, name='tarjetas'),
     # Legacy URLs
     re_path(r'^(?:balance|detalle)/$', RedirectView.as_view(pattern_name='dashboard')),

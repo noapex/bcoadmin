@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-head">
   <h5>Gastos por categoría</h5>
+  <a class="btn teal" href="{% url 'categorias_gestionar' %}">Gestionar categorías</a>
 </div>
 {% if vacio %}
   <p class="center-align" style="margin-top:40px">Todavía no hay movimientos en {{ moneda }}.

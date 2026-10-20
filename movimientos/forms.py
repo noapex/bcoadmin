@@ -1,4 +1,9 @@
+import re
+
 from django import forms
+
+from .models import Categoria, Regla
+from .services.classify import CATEGORIAS_RESERVADAS
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -19,3 +24,59 @@ class MultipleFileField(forms.FileField):
 
 class FileFieldForm(forms.Form):
     file_field = MultipleFileField()
+
+
+
+class CategoriaForm(forms.ModelForm):
+    class Meta:
+        model = Categoria
+        fields = ["name", "parent"]
+        labels = {"name": "Nombre", "parent": "Categoría padre"}
+        error_messages = {"name": {"unique": "Ya existe una categoría con ese nombre."}}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["parent"].required = False
+        self.fields["parent"].empty_label = "(ninguna: categoría principal)"
+
+    def clean_name(self):
+        name = self.cleaned_data["name"]
+        actual = self.instance.name if self.instance.pk else None
+        if actual in CATEGORIAS_RESERVADAS and name != actual:
+            raise forms.ValidationError(f"“{actual}” es una categoría del sistema: no se puede renombrar.")
+        return name
+
+    def clean_parent(self):
+        parent = self.cleaned_data["parent"]
+        if parent and self.instance.pk and parent.is_descendant_of(self.instance, include_self=True):
+            raise forms.ValidationError(
+                "No se puede mover una categoría dentro de sí misma ni de una de sus subcategorías.")
+        return parent
+
+
+class ReglaForm(forms.ModelForm):
+    FUENTES = [("", "Cualquiera"), ("cuenta", "Cuenta"), ("tarjeta", "Cualquier tarjeta"),
+               ("visa", "Visa"), ("amex", "Amex"), ("master", "Master")]
+    MONEDAS = [("", "Cualquiera"), ("ARS", "ARS"), ("USD", "USD")]
+    TIPOS = [("", "Sin cambio"), ("ingreso", "Ingreso"), ("gasto", "Gasto"), ("interno", "Interno")]
+
+    fuente = forms.ChoiceField(choices=FUENTES, required=False, label="Fuente")
+    moneda = forms.ChoiceField(choices=MONEDAS, required=False, label="Moneda")
+    tipo = forms.ChoiceField(choices=TIPOS, required=False, label="Tipo")
+
+    class Meta:
+        model = Regla
+        fields = ["patron", "es_regex", "fuente", "moneda", "prioridad", "tipo"]
+        labels = {"patron": "Patrón", "es_regex": "Es expresión regular",
+                  "prioridad": "Prioridad (menor se evalúa primero)"}
+        help_texts = {"patron": "Sin regex: texto contenido en la descripción (sin distinguir mayúsculas)."}
+
+    def clean(self):
+        data = super().clean()
+        patron = data.get("patron")
+        if data.get("es_regex") and patron:
+            try:
+                re.compile(patron, re.I)
+            except re.error as exc:
+                self.add_error("patron", f"Expresión regular inválida: {exc}")
+        return data
