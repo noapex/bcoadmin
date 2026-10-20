@@ -1,0 +1,45 @@
+{% extends 'movimientos/base.html' %}
+{% block title %}Tarjetas{% endblock %}
+
+{% block content %}
+<div class="page-head"><h5>Gastos con tarjeta</h5></div>
+{% if vacio %}
+  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos.
+    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
+{% else %}
+{% include 'movimientos/_periodo.html' with con_moneda=False %}
+{% for s in secciones %}
+<h6 class="seccion">{{ s.titulo }}</h6>
+{% if s.tabla.filas %}
+<div class="tabla-scroll">
+<table class="highlight matriz">
+  <thead>
+    <tr><th>Tarjeta</th>{% for m in s.tabla.meses %}<th class="right-align">{{ m }}</th>{% endfor %}<th class="right-align">Total</th></tr>
+  </thead>
+  <tbody>
+  {% for fila in s.tabla.filas %}
+    <tr{% if fila.sin_detalle %} class="sin-detalle"{% endif %}>
+      <td>{{ fila.nombre }}{% if fila.sin_detalle %} *{% endif %}</td>
+      {% for mes, v in fila.celdas %}
+        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ s.moneda }}&mes={{ mes }}&tipo=gasto&fuente={% if fila.sin_detalle %}cuenta&categoria={{ fila.categoria_id }}{% else %}{{ fila.fuente }}{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+      {% endfor %}
+      <td class="right-align"><b>{{ fila.total|floatformat:"2g" }}</b></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="raiz">
+      <td>Total</td>
+      {% for mes, v in s.tabla.total.celdas %}<td class="right-align">{{ v|floatformat:"2g" }}</td>{% endfor %}
+      <td class="right-align">{{ s.tabla.total.total|floatformat:"2g" }}</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+{% if s.hay_sin_detalle %}<p class="nota">* Mes sin resumen importado: se usa el pago desde la cuenta como aproximación.</p>{% endif %}
+{% else %}
+<p class="grey-text">No hay gastos con tarjeta en {{ s.titulo|lower }} en este período.</p>
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endblock %}

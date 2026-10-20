@@ -41,6 +41,8 @@
       <a href="/" class="brand-logo">Mis Cuentas</a>
       <ul class="right">
         <li><a href="{% url 'dashboard' %}">Tablero</a></li>
+        <li><a href="{% url 'categorias' %}">Categorías</a></li>
+        <li><a href="{% url 'tarjetas' %}">Tarjetas</a></li>
         <li><a href="{% url 'movimientos' %}">Movimientos</a></li>
         <li><a href="{% url 'upload' %}">Importar</a></li>
         <li><a href="{% url 'sync' %}">Sync</a></li>
@@ -50,6 +52,13 @@
   </nav>
     <div class="content">
 	            <div class="container">
+            {% if messages %}
+            <ul class="mensajes">
+              {% for message in messages %}
+                <li class="card-panel {% if message.tags == 'error' %}red lighten-4{% else %}green lighten-4{% endif %}">{{ message }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
 
 			{% block content %}
 			{% endblock %}

@@ -79,3 +79,19 @@ html, body {
     position: relative;
     height: 300px;
 }
+
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.toolbar .pill { padding: 2px 14px; border: 1px solid #4a7bd9; border-radius: 12px; color: #4a7bd9; }
+.toolbar .pill.on { background: #4a7bd9; color: #fff; }
+.toolbar input { width: 8em; margin: 0 4px; }
+
+.page-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.page-head h5 { margin: 0; }
+.tabla-scroll { overflow-x: auto; }
+table.matriz td, table.matriz th { padding: 6px 8px; white-space: nowrap; }
+table.matriz tr.raiz td { font-weight: bold; }
+table.matriz tr.sin-detalle td { font-style: italic; }
+table.matriz tfoot td { border-top: 2px solid #ccc; }
+table.matriz .toggle { color: inherit; vertical-align: middle; }
+h6.seccion { margin-top: 24px; font-weight: bold; }
+.nota { font-size: 0.9rem; color: #757575; }

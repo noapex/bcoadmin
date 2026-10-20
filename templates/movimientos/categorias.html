@@ -1,0 +1,56 @@
+{% extends 'movimientos/base.html' %}
+{% block title %}Categorías{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h5>Gastos por categoría</h5>
+</div>
+{% if vacio %}
+  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos en {{ moneda }}.
+    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
+  <p class="center-align"><a href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a></p>
+{% else %}
+{% include 'movimientos/_periodo.html' with con_moneda=True %}
+<div class="tabla-scroll">
+<table class="highlight matriz" id="tabla-categorias">
+  <thead>
+    <tr><th>Categoría</th>{% for m in tabla.meses %}<th class="right-align">{{ m }}</th>{% endfor %}<th class="right-align">Total</th></tr>
+  </thead>
+  <tbody>
+  {% for fila in tabla.filas %}
+    <tr class="{% if fila.nivel == 0 %}raiz{% else %}hijo{% endif %}"{% if fila.nivel > 0 %} data-raiz="{{ fila.raiz_id }}" style="display:none"{% endif %}>
+      <td style="padding-left:{% widthratio fila.nivel 1 24 %}px">
+        {% if fila.tiene_hijos and fila.nivel == 0 %}<a href="#" class="toggle" data-raiz="{{ fila.id }}" title="Mostrar/ocultar subcategorías"><i class="material-icons tiny">chevron_right</i></a>{% endif %}
+        {{ fila.nombre }}
+      </td>
+      {% for mes, v in fila.celdas %}
+        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto&categoria={% if fila.id %}{{ fila.id }}{% else %}none{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+      {% endfor %}
+      <td class="right-align"><b>{{ fila.total|floatformat:"2g" }}</b></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="raiz">
+      <td>Total</td>
+      {% for mes, v in tabla.total.celdas %}
+        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+      {% endfor %}
+      <td class="right-align">{{ tabla.total.total|floatformat:"2g" }}</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+<script>
+  $(function () {
+    $("#tabla-categorias .toggle").on("click", function (e) {
+      e.preventDefault();
+      var rows = $('#tabla-categorias tr.hijo[data-raiz="' + $(this).data("raiz") + '"]');
+      var open = rows.first().is(":visible");
+      rows.toggle(!open);
+      $(this).find("i").text(open ? "chevron_right" : "expand_more");
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}

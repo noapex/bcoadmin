@@ -322,9 +322,10 @@ class LegacyRedirectTests(TestCase):
         self.client.force_login(get_user_model().objects.create_user("u", password="p"))
 
     def test_redirects(self):
-        for old in ("/balance/", "/tarjetas/", "/categorias/"):
-            r = self.client.get(old)
-            self.assertEqual((r.status_code, r["Location"]), (302, "/"), old)
+        r = self.client.get("/balance/")
+        self.assertEqual((r.status_code, r["Location"]), (302, "/"))
+        for page in ("/tarjetas/", "/categorias/"):
+            self.assertEqual(self.client.get(page).status_code, 200, page)
         for old in ("/2026/09/", "/detalle/2026/09/"):
             r = self.client.get(old)
             self.assertEqual((r.status_code, r["Location"]), (302, "/movimientos/?mes=2026-09"), old)
@@ -341,3 +342,101 @@ class AmountFormatTests(TestCase):
         self.client.force_login(get_user_model().objects.create_user("u", password="p"))
         mov(2026, 9, 5, "10")
         self.assertContains(self.client.get("/"), "?moneda=USD&amp;desde=2025-10&amp;hasta=2026-09&amp;mes=2026-09".replace("&amp;", "&"))
+
+
+from movimientos.models import Tarjeta
+from movimientos.services.classify import CAT_SIN_DETALLE
+
+
+class CategoriasPageTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        self.root = Categoria.objects.create(name="Servicios")
+        self.child = Categoria.objects.create(name="Luz", parent=self.root)
+        mov(2026, 9, 10, "-300", categoria=self.child, desc="EDESUR")
+        mov(2026, 8, 11, "-1234.5", desc="SIN CAT AGO")
+        mov(2026, 9, 12, "-77", moneda="USD", categoria=self.root, desc="USD")
+
+    def test_renders_tree_with_links(self):
+        r = self.client.get(reverse("categorias"))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual((r.context["desde"], r.context["hasta"]), ("2025-10", "2026-09"))
+        self.assertContains(r, "Servicios")
+        self.assertContains(r, "Luz")
+        self.assertContains(r, "1.234,50")
+        self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-09&tipo=gasto&categoria={self.root.pk}")
+        self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-09&tipo=gasto&categoria={self.child.pk}")
+        self.assertContains(r, "/movimientos/?moneda=ARS&mes=2026-08&tipo=gasto&categoria=none")
+        self.assertNotContains(r, "mes=2026-07&tipo=gasto")  # zero cells are not links
+
+    def test_usd_isolated(self):
+        r = self.client.get(reverse("categorias") + "?moneda=USD")
+        filas = {f["nombre"]: f for f in r.context["tabla"]["filas"]}
+        self.assertEqual(filas["Servicios"]["total"], Decimal("77"))
+        self.assertEqual(r.context["tabla"]["total"]["total"], Decimal("77"))
+        self.assertNotContains(r, "1.234,50")
+
+    def test_period_params(self):
+        r = self.client.get(reverse("categorias") + "?desde=2026-09&hasta=2026-09")
+        self.assertEqual(r.context["tabla"]["meses"], ["2026-09"])
+        self.assertNotContains(r, "1.234,50")
+
+    def test_empty_db(self):
+        Detalle.objects.all().delete()
+        r = self.client.get(reverse("categorias"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Todavía no hay movimientos")
+
+
+class TarjetasPageTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        Tarjeta.objects.create(nombre="Visa Gold", codigo="1", fuente="visa", patron_pago="pago visa")
+        self.sin = Categoria.objects.create(name=CAT_SIN_DETALLE)
+        Detalle.objects.create(codigo="", fecha=datetime(2026, 9, 3), cuenta="Visa 5544", descripcion="Compra",
+                               monto=Decimal("-1500"), fuente="visa", tipo="gasto")
+        Detalle.objects.create(codigo="", fecha=datetime(2026, 9, 4), cuenta="Visa 5544", descripcion="Compra usd",
+                               monto=Decimal("-12"), fuente="visa", tipo="gasto", moneda="USD")
+        mov(2026, 8, 10, "-400", categoria=self.sin, desc="PAGO VISA")
+
+    def test_sections_rows_and_links(self):
+        r = self.client.get(reverse("tarjetas"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Pesos")
+        self.assertContains(r, "Dólares")
+        self.assertContains(r, "Visa Gold · 5544")
+        self.assertContains(r, "Visa Gold · pagos sin detalle")
+        self.assertContains(r, "1.500,00")
+        self.assertContains(r, "/movimientos/?moneda=ARS&mes=2026-09&tipo=gasto&fuente=visa")
+        self.assertContains(r, "/movimientos/?moneda=USD&mes=2026-09&tipo=gasto&fuente=visa")
+        self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-08&tipo=gasto&fuente=cuenta&categoria={self.sin.pk}")
+        self.assertContains(r, "Mes sin resumen importado")
+
+    def test_currencies_not_mixed(self):
+        r = self.client.get(reverse("tarjetas"))
+        ars, usd = r.context["secciones"]
+        self.assertEqual((ars["moneda"], usd["moneda"]), ("ARS", "USD"))
+        self.assertEqual(ars["tabla"]["total"]["total"], Decimal("1900"))
+        self.assertEqual(usd["tabla"]["total"]["total"], Decimal("12"))
+
+    def test_empty_db(self):
+        Detalle.objects.all().delete()
+        r = self.client.get(reverse("tarjetas"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Todavía no hay movimientos")
+
+
+class FuenteFilterTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 10, "-300", desc="CUENTA")
+        mov(2026, 9, 11, "-50", desc="VISA", fuente="visa")
+
+    def test_filters_and_shows_header(self):
+        r = self.client.get("/movimientos/?mes=2026-09&fuente=visa")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["VISA"])
+        self.assertContains(r, "fuente: visa")
+
+    def test_unknown_fuente_ignored(self):
+        r = self.client.get("/movimientos/?mes=2026-09&fuente=zzz")
+        self.assertEqual(len(r.context["movimientos"]), 2)

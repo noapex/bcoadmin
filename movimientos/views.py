@@ -13,9 +13,12 @@ from .forms import FileFieldForm
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
+from .services.classify import CARD_SOURCES
 from .services.importer import import_files
 
 MONEDAS = ("ARS", "USD")
+TITULO_MONEDA = {"ARS": "Pesos", "USD": "Dólares"}
+FUENTES = ("cuenta",) + tuple(sorted(CARD_SOURCES))
 MES_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3, "inactivo": 4}
 ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅", "inactivo": "💤"}
@@ -36,6 +39,21 @@ def _shift(mes, n):
     y, m = int(mes[:4]), int(mes[5:])
     i = y * 12 + m - 1 + n
     return "%04d-%02d" % (i // 12, i % 12 + 1)
+
+
+def _periodo(request, ultimo):
+    """(desde, hasta) from GET; default: the 12 months ending at `ultimo`."""
+    hasta = _mes(request.GET.get("hasta")) or ultimo
+    desde = _mes(request.GET.get("desde")) or _shift(hasta, -11)
+    return min(desde, hasta), hasta
+
+
+def _con_celdas(tabla):
+    """Pair each row's values with its month so templates can build per-cell links."""
+    meses = tabla["meses"]
+    for fila in tabla["filas"] + [tabla["total"]]:
+        fila["celdas"] = list(zip(meses, fila["valores"]))
+    return tabla
 
 
 def _f(value):
@@ -59,10 +77,7 @@ def dashboard(request):
     if ultimo is None:
         return render(request, "movimientos/dashboard.html", ctx)
 
-    hasta = _mes(request.GET.get("hasta")) or ultimo
-    desde = _mes(request.GET.get("desde")) or _shift(hasta, -11)
-    if desde > hasta:
-        desde = hasta
+    desde, hasta = _periodo(request, ultimo)
     mes = _mes(request.GET.get("mes")) or hasta
     if not desde <= mes <= hasta:
         mes = hasta
@@ -96,6 +111,32 @@ def dashboard(request):
     return render(request, "movimientos/dashboard.html", ctx)
 
 
+def categorias(request):
+    moneda = _moneda(request)
+    ultimo = stats.ultimo_mes_con_datos(moneda)
+    ctx = {"moneda": moneda, "vacio": ultimo is None}
+    if ultimo is not None:
+        desde, hasta = _periodo(request, ultimo)
+        ctx.update({"desde": desde, "hasta": hasta,
+                    "tabla": _con_celdas(stats.gastos_por_categoria(moneda, desde, hasta))})
+    return render(request, "movimientos/categorias.html", ctx)
+
+
+def tarjetas(request):
+    # Both currencies share one period, ending at the latest month with data in either.
+    ultimos = [u for u in (stats.ultimo_mes_con_datos(m) for m in MONEDAS) if u]
+    ctx = {"vacio": not ultimos}
+    if ultimos:
+        desde, hasta = _periodo(request, max(ultimos))
+        secciones = []
+        for m in MONEDAS:
+            tabla = _con_celdas(stats.gastos_por_tarjeta(m, desde, hasta))
+            secciones.append({"moneda": m, "titulo": TITULO_MONEDA[m], "tabla": tabla,
+                              "hay_sin_detalle": any(f["sin_detalle"] for f in tabla["filas"])})
+        ctx.update({"desde": desde, "hasta": hasta, "secciones": secciones})
+    return render(request, "movimientos/tarjetas.html", ctx)
+
+
 def movimientos_list(request):
     moneda = _moneda(request)
     qs = Detalle.objects.filter(activo=True, moneda=moneda)
@@ -120,11 +161,16 @@ def movimientos_list(request):
     tipo = request.GET.get("tipo", "")
     if tipo in ("ingreso", "gasto", "interno"):
         qs = qs.filter(tipo=tipo)
+    fuente = request.GET.get("fuente", "")
+    if fuente in FUENTES:
+        qs = qs.filter(fuente=fuente)
+    else:
+        fuente = ""
     qs = qs.select_related("categoria").order_by("-fecha", "-pk")
     total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
     return render(request, "movimientos/movimientos_list.html", {
         "movimientos": qs, "total": total, "moneda": moneda, "mes": mes,
-        "categoria": categoria, "tipo": tipo, "recurrente": recurrente,
+        "categoria": categoria, "tipo": tipo, "recurrente": recurrente, "fuente": fuente,
         "categoria_obj": cat, "recurrente_obj": rec,
     })
 

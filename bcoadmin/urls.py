@@ -16,7 +16,7 @@ Including another URLconf
 from django.urls import include, re_path
 from django.contrib import admin
 from django.views.generic import RedirectView
-from movimientos.views import dashboard, movimientos_list, upload, sync
+from movimientos.views import categorias, dashboard, movimientos_list, upload, sync, tarjetas
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -27,8 +27,10 @@ urlpatterns = [
     re_path(r'^movimientos/$', movimientos_list, name='movimientos'),
     re_path(r'^upload/', upload, name='upload'),
     re_path(r'^sync/', sync, name='sync'),
+    re_path(r'^categorias/$', categorias, name='categorias'),
+    re_path(r'^tarjetas/$', tarjetas, name='tarjetas'),
     # Legacy URLs
-    re_path(r'^(?:balance|tarjetas|categorias|detalle)/$', RedirectView.as_view(pattern_name='dashboard')),
+    re_path(r'^(?:balance|detalle)/$', RedirectView.as_view(pattern_name='dashboard')),
     re_path(r'^(?:detalle/)?(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
             RedirectView.as_view(url='/movimientos/?mes=%(year)s-%(month)s')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
