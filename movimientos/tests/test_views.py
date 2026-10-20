@@ -431,3 +431,24 @@ class FuenteFilterTests(TestCase):
     def test_unknown_fuente_ignored(self):
         r = self.client.get("/movimientos/?mes=2026-09&fuente=zzz")
         self.assertEqual(len(r.context["movimientos"]), 2)
+
+
+class PeriodoClampTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 10, "-300", desc="X")
+
+    def test_huge_span_is_capped_to_60_months(self):
+        for url in ("/", "/categorias/", "/tarjetas/"):
+            r = self.client.get(url + "?desde=2000-01&hasta=2026-09")
+            self.assertEqual(r.status_code, 200, url)
+            self.assertEqual((r.context["desde"], r.context["hasta"]), ("2021-10", "2026-09"), url)
+
+    def test_out_of_range_years_fall_back_to_defaults(self):
+        for url in ("/", "/categorias/", "/tarjetas/", "/movimientos/"):
+            for q in ("?desde=0001-01&hasta=9999-12", "?desde=0000-01&hasta=0000-02&mes=0000-01",
+                      "?desde=1999-12&hasta=2101-01"):
+                r = self.client.get(url + q)
+                self.assertEqual(r.status_code, 200, url + q)
+                if url != "/movimientos/":
+                    self.assertEqual((r.context["desde"], r.context["hasta"]), ("2025-10", "2026-09"), url + q)

@@ -20,6 +20,8 @@ MONEDAS = ("ARS", "USD")
 TITULO_MONEDA = {"ARS": "Pesos", "USD": "Dólares"}
 FUENTES = ("cuenta",) + tuple(sorted(CARD_SOURCES))
 MES_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+ANIO_MIN, ANIO_MAX = 2000, 2100
+MAX_MESES = 60
 ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3, "inactivo": 4}
 ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅", "inactivo": "💤"}
 ESTADO_ETIQUETA = {"falta": "Falta", "pendiente": "Pendiente", "atrasado": "Pagado con atraso",
@@ -27,7 +29,10 @@ ESTADO_ETIQUETA = {"falta": "Falta", "pendiente": "Pendiente", "atrasado": "Paga
 
 
 def _mes(value):
-    return value if value and MES_RE.match(value) else None
+    """YYYY-MM within ANIO_MIN..ANIO_MAX, else None."""
+    if value and MES_RE.match(value) and ANIO_MIN <= int(value[:4]) <= ANIO_MAX:
+        return value
+    return None
 
 
 def _moneda(request):
@@ -42,10 +47,13 @@ def _shift(mes, n):
 
 
 def _periodo(request, ultimo):
-    """(desde, hasta) from GET; default: the 12 months ending at `ultimo`."""
+    """(desde, hasta) from GET; default: the 12 months ending at `ultimo`.
+
+    The span is capped at MAX_MESES by moving `desde` forward.
+    """
     hasta = _mes(request.GET.get("hasta")) or ultimo
     desde = _mes(request.GET.get("desde")) or _shift(hasta, -11)
-    return min(desde, hasta), hasta
+    return max(min(desde, hasta), _shift(hasta, -(MAX_MESES - 1))), hasta
 
 
 def _con_celdas(tabla):
