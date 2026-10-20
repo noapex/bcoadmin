@@ -12,6 +12,7 @@ from django.utils import timezone
 from .. import parsers
 from ..models import DataFile, Detalle, Resumen
 from ..parsers.base import norm_ref
+from .classify import clasificar_todo
 
 DATE_TOLERANCE_DAYS = 2
 AMOUNT_EPS = Decimal("0.005")
@@ -130,4 +131,5 @@ def import_files(paths):
         except Exception as exc:
             reports.append(ImportReport(archivo=os.path.basename(str(path)), formato=None,
                                         errores=[f"{type(exc).__name__}: {exc}"], rechazado=True))
+    clasificar_todo()
     return reports
