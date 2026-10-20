@@ -43,7 +43,11 @@ def parse(path) -> ParseResult:
     for i, row in enumerate(rows):
         label = _text(row, 1)
         if label == "Moneda":
-            moneda = _MONEDAS.get(_text(row, 2).lower(), "ARS")
+            moneda = _MONEDAS.get(_text(row, 2).lower())
+            if moneda is None:
+                # Never guess the currency: ARS and USD must not be mixed.
+                result.errores.append(f"Moneda no reconocida: {_text(row, 2)!r}")
+                return result
         elif label == "Fecha" and _text(row, 2) == "Sucursal origen":
             header_idx = i
             break

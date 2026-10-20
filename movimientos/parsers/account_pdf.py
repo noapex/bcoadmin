@@ -90,6 +90,7 @@ def _account_cols(line):
 def _parse_section(words, moneda):
     rows, dates, comps = [], [], []
     cols = None
+    dropped = 0  # lines carrying an amount dropped for a bad date / receipt column
     for line in _group_lines(words):
         new_cols = _account_cols(line)
         if new_cols:
@@ -112,6 +113,8 @@ def _parse_section(words, moneda):
             else:
                 valid = False  # legal text, footers, titles
         if not valid:
+            if _amounts(right):
+                dropped += 1
             continue
         dates += line_dates
         comps += line_comps
@@ -133,7 +136,7 @@ def _parse_section(words, moneda):
     _assign(dates, rows, "fecha")
     _assign(comps, rows, "codigo")
 
-    movs, errs, omitidas = [], [], 0
+    movs, errs, omitidas = [], [], dropped
     prev_fecha = saldo_prev = None
     for row in rows:
         fecha = parse_date(row["fecha"]) if "fecha" in row else prev_fecha
@@ -198,6 +201,7 @@ def parse_card_lines(words):
     section, cols = None, None
     totales: dict[str, Decimal] = {}
     rows, dates = [], []
+    dropped = 0  # lines carrying an amount dropped for a non-date in the date column
     for line, text in zip(lines[first + 1:], texts[first + 1:]):
         if text.startswith("Total a pagar") or text == "Tarjeta de débito":
             break
@@ -262,6 +266,8 @@ def parse_card_lines(words):
             else:
                 desc.append(wd)
         if not valid:
+            if _amounts(right):
+                dropped += 1
             continue
         dates += line_dates
         amounts = [("USD" if x1 >= cols["Dólares"] else "ARS", amount) for amount, x1 in _amounts(right)]
@@ -276,7 +282,7 @@ def parse_card_lines(words):
     _assign(dates, rows, "fecha")
 
     cuenta = f"{ {'visa': 'Visa', 'amex': 'Amex', 'master': 'Master'}.get(fuente, '') } {last4}".strip()
-    movs, errs, omitidas = [], [], 0
+    movs, errs, omitidas = [], [], dropped
     prev_section = prev_fecha = None
     for row in rows:
         if row["section"] != prev_section:
@@ -378,4 +384,19 @@ def parse(path) -> ParseResult:
     result.errores += errs
     if card_statement:
         result.resumenes.append(card_statement)
+        result.errores += reconcile_card(card_movs, card_statement)
     return result
+
+
+def reconcile_card(movs, statement):
+    """Errors for each currency whose parsed consumption differs from the printed total."""
+    parsed: dict[str, Decimal] = {}
+    for m in movs:
+        if m.seccion == "consumo":
+            parsed[m.moneda] = parsed.get(m.moneda, Decimal(0)) - m.monto
+    errs = []
+    for moneda in sorted(set(parsed) | set(statement.totales)):
+        got, total = parsed.get(moneda, Decimal(0)), statement.totales.get(moneda, Decimal(0))
+        if got.quantize(_CENT) != total.quantize(_CENT):
+            errs.append(f"consumos de tarjeta no cuadran: {moneda} {got} vs {total}")
+    return errs

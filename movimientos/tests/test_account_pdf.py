@@ -50,6 +50,16 @@ class AccountLinesTests(TestCase):
         self.assertTrue(all((m.fuente, m.moneda, m.cuenta, m.seccion) == ("cuenta", "ARS", "Caja de Ahorro", "")
                             for m in movs))
 
+    def test_lines_dropped_for_bad_date_or_receipt_are_counted(self):
+        words = base_lines() + [
+            w("2x/08/26", 40, 170), w("Algo", 140, 170), w("-$", 330, 170), w("1,00", 340, 170), w("$", 500, 170), w("1,00", 510, 170),
+            w("12A45", 80, 190), w("Otro", 140, 190), w("-$", 330, 190), w("1,00", 340, 190), w("$", 500, 190), w("1,00", 510, 190),
+            w("Texto", 40, 210), w("legal", 80, 210),
+        ]
+        movs, errs, omitidas = account_pdf._parse_section(words, "ARS")
+        self.assertEqual(len(movs), 2)
+        self.assertEqual(omitidas, 3)  # Saldo Inicial + two dropped movement lines (legal text not counted)
+
     def test_running_balance_mismatch_is_reported(self):
         words_bad = base_lines(saldo_tarjeta="2.859.598,69")
         movs, errs = parse_account_lines(words_bad, "ARS")
@@ -150,6 +160,35 @@ class CardLinesTests(TestCase):
         ])
         self.assertTrue(all((m.fuente, m.cuenta) == ("visa", "Visa 5544") for m in movs))
         self.assertEqual({m.titular for m in movs if m.seccion == "consumo"}, {"Juan Perez"})
+
+    def _parse_pdf(self, words):
+        from unittest import mock
+        with mock.patch.object(account_pdf, "pdfplumber"), \
+                mock.patch.object(account_pdf, "_words", return_value=words):
+            return account_pdf.parse("x.pdf")
+
+    def _with_ars_total(self, amount):
+        out = []
+        for wd in self.words:
+            if wd["page"] == 1 and wd["top"] == 100 and wd["text"] == "31.041,94":
+                wd = dict(wd, text=amount)
+            out.append(wd)
+        return out
+
+    def test_parse_reconciles_card_consumption_with_totals(self):
+        # Synthetic ARS consumption nets to 0 (purchase + refund); USD to 23,71.
+        res = self._parse_pdf(self._with_ars_total("0,00"))
+        self.assertFalse([e for e in res.errores if "no cuadran" in e], res.errores)
+        res = self._parse_pdf(self.words)
+        self.assertIn("consumos de tarjeta no cuadran: ARS 0.00 vs 31041.94", res.errores)
+        self.assertFalse([e for e in res.errores if "USD" in e and "no cuadran" in e])
+
+    def test_card_line_with_bad_date_is_counted_as_omitted(self):
+        words = self.words + [w("2x/08/26", 25, 470), w("123", 80, 470), w("Algo", 142, 470),
+                              w("$", 423, 470), w("1,00", 430, 470)]
+        movs, _, omitidas, errs = parse_card_lines(words)
+        self.assertEqual(omitidas, 2)  # Saldo anterior + dropped line
+        self.assertFalse(any(m.descripcion == "Algo" for m in movs))
 
     def test_no_card_section(self):
         movs, statement, omitidas, errs = parse_card_lines(words_of("Tarjeta de débito", 23, 70))

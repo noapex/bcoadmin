@@ -182,3 +182,13 @@ class ImportFilesTests(TestCase):
             self.assertTrue(reports[0].rechazado)
             self.assertEqual(DataFile.objects.count(), 0)
             self.assertEqual(list(Path(media).iterdir()), [])
+
+
+class UnknownCurrencyImportTests(TestCase):
+    def test_unknown_account_currency_imports_nothing(self):
+        from movimientos.tests.factories import make_account_xlsx
+        with tempfile.TemporaryDirectory() as tmp:
+            report = importer.import_file(make_account_xlsx(tmp, moneda="Euros"))
+        self.assertEqual(report.nuevos, 0)
+        self.assertIn("Moneda no reconocida: 'Euros'", report.errores)
+        self.assertEqual((Detalle.objects.count(), Resumen.objects.count()), (0, 0))

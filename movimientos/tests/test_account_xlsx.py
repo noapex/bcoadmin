@@ -29,6 +29,12 @@ class AccountXlsxTests(TestCase):
         self.assertEqual(len([m for m in res.movimientos if m.monto == Decimal("-15337.00")]), 3)
         self.assertEqual(len(res.movimientos), 6)
 
+    def test_unknown_currency_is_rejected(self):
+        path = factories.make_account_xlsx(self.tmp.name, moneda="Euros")
+        res = account_xlsx.parse(path)
+        self.assertEqual((res.movimientos, res.resumenes), ([], []))
+        self.assertEqual(res.errores, ["Moneda no reconocida: 'Euros'"])
+
     def test_matches_and_dollars(self):
         self.assertTrue(account_xlsx.matches(self.path))
         self.assertFalse(card_xlsx.matches(self.path))
