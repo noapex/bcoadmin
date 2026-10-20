@@ -227,3 +227,29 @@ class SeedTests(TestCase):
         clasificar_todo()
         r.refresh_from_db()
         self.assertEqual((r.tipo, r.categoria.name), ("gasto", CAT_SIN_DETALLE))
+
+
+class TarjetaDePagoTests(TestCase):
+    def setUp(self):
+        Tarjeta.objects.create(nombre="V", codigo="1", fuente="visa",
+                               patron_pago=r"pago visa|^pago de tarjeta de credito")
+        Tarjeta.objects.create(nombre="A", codigo="3", fuente="amex", patron_pago="amex")
+        Tarjeta.objects.create(nombre="M", codigo="5", fuente="master", patron_pago="(")  # invalid: ignored
+
+    def test_matches_card_source(self):
+        from movimientos.services.classify import tarjeta_de_pago
+        self.assertEqual(tarjeta_de_pago("PAGO VISA 123"), "visa")
+        self.assertEqual(tarjeta_de_pago("Pago de tarjeta de credito x"), "visa")
+        self.assertEqual(tarjeta_de_pago("Pago tarjeta de credito AMEX Deb."), "amex")
+        self.assertIsNone(tarjeta_de_pago("Alquiler"))
+        self.assertIsNone(tarjeta_de_pago(""))
+
+    def test_agrees_with_resolver(self):
+        from movimientos.services.classify import tarjeta_de_pago
+        descs = ["PAGO VISA 123", "Pago tarjeta amex", "Alquiler", "x pago de tarjeta de credito"]
+        rows = [mk(d, -10) for d in descs]
+        clasificar_todo()
+        for d, r in zip(descs, rows):
+            r.refresh_from_db()
+            es_pago = r.categoria is not None and r.categoria.name == CAT_SIN_DETALLE
+            self.assertEqual(es_pago, tarjeta_de_pago(d) is not None, d)

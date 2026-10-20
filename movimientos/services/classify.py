@@ -10,6 +10,8 @@ from ..models import Categoria, Detalle, Regla, Resumen, Tarjeta
 CAT_SIN_DETALLE = "Tarjeta sin detalle"
 CAT_PAGO_TARJETA = "Pagos de tarjeta"
 CAT_INTERNOS = "Movimientos internos"
+# Code depends on these names: they can't be renamed or deleted from the UI.
+CATEGORIAS_RESERVADAS = (CAT_INTERNOS, CAT_PAGO_TARJETA, CAT_SIN_DETALLE)
 
 CARD_SOURCES = {"visa", "amex", "master"}
 PAYMENT_WINDOW_DAYS = 10
@@ -139,17 +141,33 @@ def _apply_rules(rules, card_payment=None):
     return changed
 
 
+def patrones_tarjeta():
+    """[(fuente, compiled patron_pago)] for every Tarjeta; invalid regexes are skipped."""
+    out = []
+    for t in Tarjeta.objects.order_by("id"):
+        try:
+            out.append((t.fuente, re.compile(t.patron_pago, re.I)))
+        except re.error:
+            continue
+    return out
+
+
+def tarjeta_de_pago(descripcion: str, patrones=None) -> str | None:
+    """Card fuente whose patron_pago matches an account description, else None.
+
+    Pass `patrones` (from patrones_tarjeta()) to avoid a query per call.
+    """
+    if patrones is None:
+        patrones = patrones_tarjeta()
+    return next((f for f, rx in patrones if rx.search(descripcion or "")), None)
+
+
 def _card_payment_resolver():
     """Return fn(row) -> (tipo, categoria_id) | None for account-side card payments.
 
     A payment is interno only if that card's statement (Resumen) is imported for its cycle.
     """
-    tarjetas = []
-    for t in Tarjeta.objects.all():
-        try:
-            tarjetas.append((t.fuente, re.compile(t.patron_pago, re.I)))
-        except re.error:
-            continue
+    tarjetas = patrones_tarjeta()
     if not tarjetas:
         return None
     venc = {}
@@ -159,7 +177,7 @@ def _card_payment_resolver():
     window = timedelta(days=PAYMENT_WINDOW_DAYS)
 
     def resolve(row):
-        fuente = next((f for f, rx in tarjetas if rx.search(row.descripcion)), None)
+        fuente = tarjeta_de_pago(row.descripcion, tarjetas)
         if fuente is None:
             return None
         day = _local_date(row.fecha)
