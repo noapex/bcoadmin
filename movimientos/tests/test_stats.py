@@ -3,9 +3,11 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from movimientos.models import Categoria, Detalle
+from movimientos.models import Categoria, Detalle, Tarjeta
+from movimientos.services.classify import CAT_SIN_DETALLE
 from movimientos.services.stats import (
-    category_evolution, month_range, monthly_totals, spending_by_category, ultimo_mes_con_datos)
+    category_evolution, gastos_por_categoria, gastos_por_tarjeta, month_range, monthly_totals,
+    spending_by_category, ultimo_mes_con_datos)
 
 
 def mov(y, m, d, monto, tipo="gasto", moneda="ARS", categoria=None, activo=True):
@@ -93,11 +95,6 @@ class UltimoMesTests(TestCase):
         mov(2026, 5, 3, "-1", tipo="interno")
         mov(2026, 6, 3, "-1", moneda="USD")
         self.assertEqual(ultimo_mes_con_datos("ARS"), "2026-02")
-
-
-from movimientos.models import Tarjeta
-from movimientos.services.classify import CAT_SIN_DETALLE
-from movimientos.services.stats import gastos_por_categoria, gastos_por_tarjeta
 
 
 def D(*values):

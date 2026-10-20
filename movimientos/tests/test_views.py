@@ -1,4 +1,17 @@
-from django.test import TestCase
+import tempfile
+from datetime import date, datetime
+from decimal import Decimal
+from pathlib import Path
+from unittest import mock
+
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from movimientos.models import Categoria, DataFile, Detalle, Recurrente, Tarjeta
+from movimientos.services.classify import CAT_SIN_DETALLE
+from movimientos.tests.factories import make_account_xlsx
 
 
 class LoginRequiredTests(TestCase):
@@ -9,19 +22,6 @@ class LoginRequiredTests(TestCase):
 
     def test_login_page_is_public(self):
         self.assertEqual(self.client.get("/accounts/login/").status_code, 200)
-
-
-import tempfile
-from pathlib import Path
-from unittest import mock
-
-from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
-from django.urls import reverse
-
-from movimientos.models import DataFile, Detalle
-from movimientos.tests.factories import make_account_xlsx
 
 
 class UploadViewTests(TestCase):
@@ -191,12 +191,6 @@ class AdminTests(TestCase):
                 self.assertEqual(r.status_code, 200, model)
 
 
-from datetime import date, datetime
-from decimal import Decimal
-
-from movimientos.models import Categoria, Recurrente
-
-
 def mov(y, m, d, monto, moneda="ARS", tipo=None, categoria=None, desc="X", fuente="cuenta"):
     monto = Decimal(monto)
     return Detalle.objects.create(
@@ -342,10 +336,6 @@ class AmountFormatTests(TestCase):
         self.client.force_login(get_user_model().objects.create_user("u", password="p"))
         mov(2026, 9, 5, "10")
         self.assertContains(self.client.get("/"), "?moneda=USD&amp;desde=2025-10&amp;hasta=2026-09&amp;mes=2026-09".replace("&amp;", "&"))
-
-
-from movimientos.models import Tarjeta
-from movimientos.services.classify import CAT_SIN_DETALLE
 
 
 class CategoriasPageTests(TestCase):
