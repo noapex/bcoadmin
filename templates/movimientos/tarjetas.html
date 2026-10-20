@@ -21,7 +21,7 @@
     <tr{% if fila.sin_detalle %} class="sin-detalle"{% endif %}>
       <td>{{ fila.nombre }}{% if fila.sin_detalle %} *{% endif %}</td>
       {% for mes, v in fila.celdas %}
-        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ s.moneda }}&mes={{ mes }}&tipo=gasto&fuente={% if fila.sin_detalle %}cuenta&categoria={{ fila.categoria_id }}{% else %}{{ fila.fuente }}{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ s.moneda }}&mes={{ mes }}&tipo=gasto&fuente={% if fila.sin_detalle %}cuenta&categoria={{ fila.categoria_id }}&tarjeta={{ fila.fuente|default:'otras' }}{% else %}{{ fila.fuente }}{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
       {% endfor %}
       <td class="right-align"><b>{{ fila.total|floatformat:"2g" }}</b></td>
     </tr>

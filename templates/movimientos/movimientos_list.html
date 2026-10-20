@@ -12,7 +12,7 @@
 {% block content %}
 <br/>
 <p>
-  {{ moneda }}{% if mes %} · {{ mes }}{% endif %}{% if categoria %} · categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}{% endif %}{% if tipo %} · {{ tipo }}{% endif %}{% if fuente %} · fuente: {{ fuente }}{% endif %}{% if recurrente %} · recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}{% endif %}
+  {{ moneda }}{% if mes %} · {{ mes }}{% endif %}{% if categoria %} · categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}{% endif %}{% if tipo %} · {{ tipo }}{% endif %}{% if fuente %} · fuente: {{ fuente }}{% endif %}{% if tarjeta %} · pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}{% endif %}{% if recurrente %} · recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}{% endif %}
   — <a href="{% url 'dashboard' %}?moneda={{ moneda }}">volver al tablero</a>
 </p>
 <table class="highlight" id="movs">

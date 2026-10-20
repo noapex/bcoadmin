@@ -452,3 +452,42 @@ class PeriodoClampTests(TestCase):
                 self.assertEqual(r.status_code, 200, url + q)
                 if url != "/movimientos/":
                     self.assertEqual((r.context["desde"], r.context["hasta"]), ("2025-10", "2026-09"), url + q)
+
+
+class TarjetaFilterTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        Tarjeta.objects.create(nombre="Visa", codigo="1", fuente="visa", patron_pago="pago visa")
+        Tarjeta.objects.create(nombre="American", codigo="3", fuente="amex", patron_pago="amex")
+        Tarjeta.objects.create(nombre="Naranja", codigo="9", fuente="naranja", patron_pago="naranja")
+        self.sin = Categoria.objects.create(name=CAT_SIN_DETALLE)
+        mov(2026, 9, 10, "-400", categoria=self.sin, desc="PAGO VISA")
+        mov(2026, 9, 11, "-100", categoria=self.sin, desc="Pago tarjeta amex")
+        mov(2026, 9, 12, "-7", categoria=self.sin, desc="Pago tarjeta desconocida")
+        mov(2026, 9, 13, "-3", categoria=self.sin, desc="Pago naranja")
+        mov(2026, 9, 14, "-50", desc="PAGO VISA sin categoria")
+
+    def _list(self, tarjeta):
+        return self.client.get(f"/movimientos/?moneda=ARS&mes=2026-09&tipo=gasto&fuente=cuenta"
+                               f"&categoria={self.sin.pk}&tarjeta={tarjeta}")
+
+    def test_cell_links_carry_card_and_totals_match(self):
+        r = self.client.get(reverse("tarjetas"))
+        ars = r.context["secciones"][0]["tabla"]
+        for fila in ars["filas"]:
+            clave = fila["fuente"] or "otras"
+            self.assertContains(r, f"&categoria={self.sin.pk}&tarjeta={clave}")
+            lista = self._list(clave)
+            self.assertEqual(-lista.context["total"], fila["total"], clave)
+
+    def test_filters_by_card(self):
+        r = self._list("visa")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["PAGO VISA"])
+        self.assertContains(r, "pagos sin detalle de visa")
+        r = self._list("otras")
+        self.assertEqual(sorted(d.descripcion for d in r.context["movimientos"]),
+                         ["Pago naranja", "Pago tarjeta desconocida"])
+
+    def test_unknown_value_ignored(self):
+        r = self.client.get("/movimientos/?mes=2026-09&tarjeta=zzz")
+        self.assertEqual(len(r.context["movimientos"]), 5)

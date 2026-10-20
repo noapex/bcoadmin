@@ -13,7 +13,7 @@ from .forms import FileFieldForm
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
-from .services.classify import CARD_SOURCES
+from .services.classify import CAT_SIN_DETALLE, CARD_SOURCES, patrones_tarjeta
 from .services.importer import import_files
 
 MONEDAS = ("ARS", "USD")
@@ -174,11 +174,21 @@ def movimientos_list(request):
         qs = qs.filter(fuente=fuente)
     else:
         fuente = ""
+    tarjeta = request.GET.get("tarjeta", "")
+    if tarjeta in stats.ORDEN_TARJETAS or tarjeta == "otras":
+        # Account-side card payments without detail, of one card ("otras": unmatched/unknown cards).
+        objetivo = None if tarjeta == "otras" else tarjeta
+        patrones = patrones_tarjeta()
+        pagos = qs.filter(fuente="cuenta", categoria__name=CAT_SIN_DETALLE).values_list("pk", "descripcion")
+        qs = qs.filter(pk__in=[pk for pk, desc in pagos if stats.tarjeta_de_fila(desc, patrones) == objetivo])
+    else:
+        tarjeta = ""
     qs = qs.select_related("categoria").order_by("-fecha", "-pk")
     total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
     return render(request, "movimientos/movimientos_list.html", {
         "movimientos": qs, "total": total, "moneda": moneda, "mes": mes,
         "categoria": categoria, "tipo": tipo, "recurrente": recurrente, "fuente": fuente,
+        "tarjeta": tarjeta,
         "categoria_obj": cat, "recurrente_obj": rec,
     })
 
