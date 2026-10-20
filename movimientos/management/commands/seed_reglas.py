@@ -53,16 +53,24 @@ class Command(BaseCommand):
                     self._regla(patron, cat)
 
     def _tarjetas(self, tarjetas):
+        # Merge entries sharing a source; create-only so admin edits survive re-seeding.
+        por_fuente = {}
         for nombre, codigos in tarjetas.items():
             fuente = FUENTE_POR_NOMBRE.get(nombre.split()[0].lower())
             if fuente is None:
                 self.stderr.write(f"Tarjeta desconocida omitida: {nombre}")
                 continue
+            if isinstance(codigos, str):
+                codigos = [codigos]
+            entry = por_fuente.setdefault(fuente, {"nombre": nombre, "codigos": []})
+            entry["codigos"].extend(codigos)
+        for fuente, entry in por_fuente.items():
+            codigos = entry["codigos"]
             partes = [re.escape(c) for c in codigos]
             if fuente == "visa":
                 partes += ["pago de tarjeta de credito$", "^pago de tarjeta de credito"]
             elif fuente == "amex":
                 partes.append("amex")
-            Tarjeta.objects.update_or_create(
-                fuente=fuente, defaults={"nombre": nombre, "codigo": ", ".join(codigos),
+            Tarjeta.objects.get_or_create(
+                fuente=fuente, defaults={"nombre": entry["nombre"], "codigo": ", ".join(codigos),
                                          "patron_pago": "|".join(partes)})

@@ -1,4 +1,5 @@
 import tempfile
+from unittest import mock
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -131,6 +132,16 @@ class ImportFilesTests(TestCase):
             self.assertEqual(len(list(Path(media).iterdir())), 1)
             self.assertTrue(bad.exists() and good.exists())
             self.assertEqual(Detalle.objects.first().archivo_id, DataFile.objects.last().pk)
+
+    def test_classification_failure_keeps_reports(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as media:
+            good = make_account_xlsx(tmp)
+            with override_settings(MEDIA_ROOT=media), \
+                    mock.patch("movimientos.services.importer.clasificar_todo", side_effect=RuntimeError("boom")):
+                reports = import_files([str(good)])
+            self.assertGreater(reports[0].nuevos, 0)
+            self.assertIn("boom", reports[0].errores[-1])
+            self.assertGreater(Detalle.objects.count(), 0)
 
     def test_rolled_back_file_leaves_no_datafile_or_copy(self):
         res = ParseResult(formato="account_xlsx", resumenes=[], movimientos=[mov(date(2026, 10, 1), "1")])

@@ -131,5 +131,13 @@ def import_files(paths):
         except Exception as exc:
             reports.append(ImportReport(archivo=os.path.basename(str(path)), formato=None,
                                         errores=[f"{type(exc).__name__}: {exc}"], rechazado=True))
-    clasificar_todo()
+    try:
+        clasificar_todo()
+    except Exception as exc:
+        # Imports are already committed; report the failure without losing the reports.
+        msg = f"Clasificación fallida: {type(exc).__name__}: {exc}"
+        if reports:
+            reports[-1].errores.append(msg)
+        else:
+            reports.append(ImportReport(archivo="", formato=None, errores=[msg], rechazado=True))
     return reports

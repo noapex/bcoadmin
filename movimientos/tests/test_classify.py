@@ -119,7 +119,7 @@ class ClassifyTests(TestCase):
     def test_standalone_resolver(self):
         Tarjeta.objects.create(nombre="V", codigo="1", fuente="visa", patron_pago="pago visa")
         r = mk("pago visa", -10)
-        resolver_pagos_tarjeta()
+        self.assertGreater(resolver_pagos_tarjeta(), 0)
         r.refresh_from_db()
         self.assertEqual((r.tipo, r.categoria.name), ("gasto", CAT_SIN_DETALLE))
 
@@ -160,6 +160,21 @@ class SeedTests(TestCase):
         self.assertIn("1111", visa.patron_pago)
         self.assertIn("pago de tarjeta de credito$", visa.patron_pago)
         self.assertIn("amex", Tarjeta.objects.get(fuente="amex").patron_pago)
+
+    @override_settings(**SEED_SETTINGS)
+    def test_seed_keeps_admin_edits_to_tarjeta(self):
+        call_command("seed_reglas", stdout=StringIO())
+        Tarjeta.objects.filter(fuente="visa").update(patron_pago="mio", nombre="Editada")
+        call_command("seed_reglas", stdout=StringIO())
+        t = Tarjeta.objects.get(fuente="visa")
+        self.assertEqual((t.patron_pago, t.nombre), ("mio", "Editada"))
+
+    @override_settings(CATEGORIAS_GASTOS={}, IGNORAR=[], TARJETAS={"Visa": "1234", "Visa Gold": ["5678"]})
+    def test_seed_string_codes_and_merged_fuente(self):
+        call_command("seed_reglas", stdout=StringIO())
+        t = Tarjeta.objects.get(fuente="visa")
+        self.assertEqual(Tarjeta.objects.count(), 1)
+        self.assertTrue(t.patron_pago.startswith("1234|5678|"))
 
     @override_settings(**SEED_SETTINGS)
     def test_seed_reuses_existing_category(self):

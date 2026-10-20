@@ -165,20 +165,9 @@ def _card_payment_resolver():
     return resolve
 
 
-def resolver_pagos_tarjeta() -> None:
-    """Apply only the card-payment resolver to non-manual account rows."""
-    resolve = _card_payment_resolver()
-    if resolve is None:
-        return
-    batch = []
-    qs = Detalle.objects.filter(fuente="cuenta", categoria_manual=False).only(
-        "id", "descripcion", "fecha", "tipo", "categoria")
-    for row in qs.iterator(chunk_size=2000):
-        resolved = resolve(row)
-        if resolved and resolved != (row.tipo, row.categoria_id):
-            row.tipo, row.categoria_id = resolved
-            batch.append(row)
-    _flush(batch, ["tipo", "categoria"])
+def resolver_pagos_tarjeta() -> int:
+    """Card-payment resolution runs inside the classification pass; single code path."""
+    return clasificar_todo()
 
 
 def clasificar_todo() -> int:
