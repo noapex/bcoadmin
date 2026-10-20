@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.LoginRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -161,8 +162,9 @@ CATEGORIAS_GASTOS = {'Servicios':
                          ['Extraccion'],
                      }
 
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.7.0.10', '192.168.0.139']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.7.0.10', '192.168.0.139', '192.168.0.178', '192.168.0.40']
 try:
     from .local_settings import *
 except ImportError:

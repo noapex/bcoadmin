@@ -17,7 +17,7 @@ from django.db.models import Q
 from datetime import timedelta
 import locale
 from .get_movs import download_movs
-locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
+#locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 class DetalleMonthArchiveView(MonthArchiveView):
     queryset = Detalle.objects.filter(activo=True)

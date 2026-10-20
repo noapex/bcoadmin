@@ -6,7 +6,7 @@ import math
 
 
 locale.setlocale(locale.LC_TIME, "es_AR.UTF-8")
-locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
+#locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 
 def get_movimientos(myfile):
