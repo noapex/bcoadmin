@@ -1,0 +1,51 @@
+{% extends 'movimientos/base.html' %}
+{% load humanize %}
+{% block title %}Movimientos{% endblock %}
+
+{% block extra_head_content %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/css/theme.materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.widgets.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<br/>
+<p>
+  {{ moneda }}{% if mes %} · {{ mes }}{% endif %}{% if categoria %} · categoría: {% if categoria == 'none' %}sin categoría{% else %}#{{ categoria }}{% endif %}{% endif %}{% if tipo %} · {{ tipo }}{% endif %}{% if recurrente %} · recurrente #{{ recurrente }}{% endif %}
+  — <a href="{% url 'dashboard' %}?moneda={{ moneda }}">volver al tablero</a>
+</p>
+<table class="highlight" id="movs">
+  <thead>
+    <tr>
+      <th>Fecha</th><th>Fuente</th><th>Descripción</th><th>Cuota</th>
+      <th>Monto</th><th>Tipo</th><th>Categoría</th><th>Editar</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for d in movimientos %}
+    <tr>
+      <td>{{ d.fecha|date:"d/m/Y" }}</td>
+      <td>{{ d.fuente }}</td>
+      <td>{{ d.descripcion }}</td>
+      <td>{{ d.cuota }}</td>
+      <td class="right-align {% if d.monto < 0 %}neg{% endif %}">{{ d.monto|floatformat:2|intcomma }}</td>
+      <td>{{ d.tipo }}</td>
+      <td>{{ d.categoria.name|default:"Sin categoría" }}</td>
+      <td><a href="{% url 'admin:movimientos_detalle_change' d.pk %}"><i class="material-icons">edit</i></a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8">No hay movimientos para este filtro.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tbody class="tablesorter-infoOnly">
+    <tr><th colspan="4">Total</th><th class="right-align">{{ total|floatformat:2|intcomma }}</th><th colspan="3"></th></tr>
+  </tbody>
+</table>
+<script>
+  $(function () {
+    $("#movs").tablesorter({theme: "materialize", widthFixed: true, widgets: ["filter"],
+      widgetOptions: {filter_cssFilter: ["", "", "browser-default"]}});
+  });
+</script>
+{% endblock %}

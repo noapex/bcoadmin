@@ -15,35 +15,22 @@ Including another URLconf
 """
 from django.urls import include, re_path
 from django.contrib import admin
-from movimientos.views import DetalleMonthArchiveView, upload, wrapper_view, sync
+from django.views.generic import RedirectView
+from movimientos.views import dashboard, movimientos_list, upload, sync
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
     re_path(r'^admin/', admin.site.urls),
     re_path(r'accounts/', include('django.contrib.auth.urls')),
-    # re_path(r'^balance/$', balance, name='dashboard'),
-    re_path(r'^$', wrapper_view, {'operation': 'dashboard'}, name='main_view'),
+    re_path(r'^$', dashboard, name='dashboard'),
+    re_path(r'^movimientos/$', movimientos_list, name='movimientos'),
     re_path(r'^upload/', upload, name='upload'),
     re_path(r'^sync/', sync, name='sync'),
-    re_path(r'^(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        DetalleMonthArchiveView.as_view(month_format='%m'),
-        name="detalle_month_numeric2"),
-    # Example: /2012/aug/
-    re_path(r'^(?P<year>[0-9]{4})/(?P<month>[-\w]+)/$',
-        DetalleMonthArchiveView.as_view(),
-        name="detalle_month"),
-    re_path(r'^detalle/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        DetalleMonthArchiveView.as_view(month_format='%m'),
-        name="detalle_month_numeric2"),
-    # Example: /2012/aug/
-    re_path(r'^detalle/(?P<year>[0-9]{4})/(?P<month>[-\w]+)/$',
-        DetalleMonthArchiveView.as_view(),
-        name="detalle_month"),
-    re_path(r'^(?P<operation>(balance|tarjetas|detalle|ingresos|egresos|categorias))/$',
-        wrapper_view, name='main_view'),
-    re_path(r'^(?P<operation>\w{1,50})/(?P<month>[0-9]{2})/$',
-        wrapper_view, name='main_view'),
+    # Legacy URLs
+    re_path(r'^(?:balance|tarjetas|categorias|detalle)/$', RedirectView.as_view(pattern_name='dashboard')),
+    re_path(r'^(?:detalle/)?(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
+            RedirectView.as_view(url='/movimientos/?mes=%(year)s-%(month)s')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

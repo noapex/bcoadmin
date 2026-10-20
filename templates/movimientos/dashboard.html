@@ -1,76 +1,119 @@
 {% extends 'movimientos/base.html' %}
+{% load humanize %}
+{% block title %}Tablero{% endblock %}
 
-{% load static %}
-
-{% block title %}Balance{% endblock %}
+{% block extra_head_content %}
+{{ block.super }}
+<style>
+  .kpis { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+  .kpi { flex: 1; min-width: 150px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
+  .kpi b { display: block; font-size: 1.5rem; }
+  .pos { color: #2e9d5b; } .neg { color: #d0453d; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  .box { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
+  .box h5 { margin: 0 0 8px; font-size: 1.1rem; }
+  .box canvas { max-height: 280px; }
+  .rec { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #ddd; }
+  .rec a { color: inherit; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .toolbar .pill { padding: 2px 14px; border: 1px solid #4a7bd9; border-radius: 12px; color: #4a7bd9; }
+  .toolbar .pill.on { background: #4a7bd9; color: #fff; }
+  .toolbar input { width: 8em; margin: 0 4px; }
+</style>
+{% endblock %}
 
 {% block content %}
+{% if vacio %}
+  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos en {{ moneda }}.
+    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
+  <p class="center-align"><a href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a></p>
+{% else %}
+<div class="toolbar">
+  <a class="pill {% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS">Pesos</a>
+  <a class="pill {% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD">Dólares</a>
+  <form method="get" style="display:inline-flex;align-items:center;gap:4px">
+    <input type="hidden" name="moneda" value="{{ moneda }}">
+    Desde <input type="month" name="desde" value="{{ desde }}">
+    hasta <input type="month" name="hasta" value="{{ hasta }}">
+    mes <input type="month" name="mes" value="{{ mes }}">
+    <button class="btn-small teal" type="submit">Ver</button>
+  </form>
+</div>
 
-<h3>Balance</h3>
-<ul>
-    {% for d, v in balance %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
+<div class="kpis">
+  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">Ingresos {{ mes }}<b class="pos">$ {{ kpis.ingresos|floatformat:2|intcomma }}</b></a>
+  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">Gastos {{ mes }}<b class="neg">$ {{ kpis.gastos|floatformat:2|intcomma }}</b></a>
+  <div class="kpi">Balance<b class="{% if kpis.balance >= 0 %}pos{% else %}neg{% endif %}">$ {{ kpis.balance|floatformat:2|intcomma }}</b></div>
+  <div class="kpi">Recurrentes<b class="{% if kpis.faltan %}neg{% else %}pos{% endif %}">{% if kpis.faltan %}{{ kpis.faltan }} faltan{% else %}al día{% endif %}</b></div>
+</div>
+
+<div class="grid2">
+  <div class="box"><h5>Balance mensual</h5><canvas id="chart-balance"></canvas></div>
+  <div class="box"><h5>¿En qué gasto? ({{ mes }})</h5><canvas id="chart-cat"></canvas></div>
+  <div class="box"><h5>Evolución por categoría</h5><canvas id="chart-evol"></canvas></div>
+  <div class="box"><h5>Recurrentes</h5>
+    {% for r in recurrentes %}
+      <div class="rec">
+        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}">{{ r.icono }} {{ r.rec.nombre }}{% if r.rec.ultima_fecha %} <small class="grey-text">({{ r.rec.ultima_fecha|date:"d/m/Y" }})</small>{% endif %}</a>
+        <span>{% if r.rec.monto_ref %}$ {{ r.rec.monto_ref|floatformat:2|intcomma }}{% endif %}</span>
+      </div>
+    {% empty %}
+      <p class="grey-text">No hay pagos recurrentes detectados.</p>
     {% endfor %}
-</ul>
+  </div>
+</div>
 
-<h3>Ingresos</h3>
-<ul>
-    {% for d, v in ingresos %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
-    {% endfor %}
-</ul>
+{{ data|json_script:"dash-data" }}
+<script>
+(function () {
+  var d = JSON.parse(document.getElementById("dash-data").textContent);
+  var base = "{% url 'movimientos' %}?moneda=" + d.moneda;
+  var PALETTE = ["#4a7bd9", "#e8a33d", "#9b59b6", "#2e9d5b", "#d0453d", "#17a2b8", "#999999"];
 
-<h3>Egresos</h3>
-<ul>
-    {% for d, v in egresos %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
-    {% endfor %}
-</ul>
+  new Chart(document.getElementById("chart-balance"), {
+    data: {
+      labels: d.meses,
+      datasets: [
+        {type: "bar", label: "Ingresos", data: d.ingresos, backgroundColor: "#2e9d5b"},
+        {type: "bar", label: "Gastos", data: d.gastos, backgroundColor: "#d0453d"},
+        {type: "line", label: "Balance", data: d.balance, borderColor: "#4a7bd9", backgroundColor: "#4a7bd9", tension: 0.2}
+      ]
+    },
+    options: {
+      onClick: function (e, els) {
+        if (els.length) { window.location = base + "&mes=" + d.meses[els[0].index]; }
+      }
+    }
+  });
 
+  new Chart(document.getElementById("chart-cat"), {
+    type: "doughnut",
+    data: {
+      labels: d.categorias.map(function (c) { return c.nombre; }),
+      datasets: [{data: d.categorias.map(function (c) { return c.total; }),
+                  backgroundColor: d.categorias.map(function (c, i) { return PALETTE[i % PALETTE.length]; })}]
+    },
+    options: {
+      onClick: function (e, els) {
+        if (!els.length) { return; }
+        var c = d.categorias[els[0].index];
+        window.location = base + "&mes=" + d.mes + "&categoria=" + (c.id === null ? "none" : c.id);
+      }
+    }
+  });
 
-
-<h3>Extracciones</h3>
-<ul>
-    {% for d, v in extracciones %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
-    {% endfor %}
-</ul>
-
-
-<h3>Sircreb</h3>
-<ul>
-    {% for d, v in sircreb %}
-        <li>{{ d|date:"M Y"  }}: {{ v }}</li>
-    {% endfor %}
-</ul>
-
-
-<h3>Tarjetas</h3>
-
-     <table class="highlight">
-        <thead>
-          <tr>
-              <th>Mes</th>
-              {% for d, v in tarjetas|slice:":1" %}
-                {% for dd, vv in v.items %}
-                    <th>{{ dd|title }}</th>
-                {% endfor %}
-              {% endfor %}
-
-          </tr>
-        </thead>
-    <tbody>
-
-        {% for d, v in tarjetas %}
-            <tr>
-        <td>{{ d|date:"M Y" }}</td>
-            {% for dd, vv in v.items %}
-                <td>{{ vv }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-
-        </tbody>
-     </table>
-
+  new Chart(document.getElementById("chart-evol"), {
+    type: "line",
+    data: {
+      labels: d.evolucion.meses,
+      datasets: d.evolucion.series.map(function (s, i) {
+        return {label: s.nombre, data: s.valores, borderColor: PALETTE[i % PALETTE.length],
+                backgroundColor: PALETTE[i % PALETTE.length], tension: 0.2};
+      })
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

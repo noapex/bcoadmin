@@ -189,3 +189,112 @@ class AdminTests(TestCase):
             if model in admin.site._registry:
                 r = self.client.get(reverse(f"admin:movimientos_{model._meta.model_name}_changelist"))
                 self.assertEqual(r.status_code, 200, model)
+
+
+from datetime import date, datetime
+from decimal import Decimal
+
+from movimientos.models import Categoria, Recurrente
+
+
+def mov(y, m, d, monto, moneda="ARS", tipo=None, categoria=None, desc="X", fuente="cuenta"):
+    monto = Decimal(monto)
+    return Detalle.objects.create(
+        codigo="", fecha=datetime(y, m, d), cuenta="c", descripcion=desc, monto=monto,
+        moneda=moneda, fuente=fuente, categoria=categoria,
+        tipo=tipo or ("ingreso" if monto > 0 else "gasto"))
+
+
+class DashboardTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        self.cat = Categoria.objects.create(name="Servicios")
+        mov(2026, 9, 5, "1000")
+        mov(2026, 9, 10, "-300", categoria=self.cat, desc="EDESUR")
+        mov(2026, 9, 11, "-50", desc="SIN CAT")
+        mov(2026, 8, 11, "-70", desc="AGOSTO")
+        mov(2026, 9, 12, "-9", tipo="interno")
+        mov(2026, 9, 6, "40", moneda="USD")
+        mov(2026, 9, 7, "-15", moneda="USD")
+        Recurrente.objects.create(
+            nombre="Netflix", clave="netflix", moneda="ARS", fuente="cuenta", monto_ref=Decimal("19.99"),
+            ultima_fecha=date(2026, 6, 17), dia_habitual=17, estado_admin="confirmado")
+
+    def test_dashboard_ars(self):
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        k = r.context["kpis"]
+        self.assertEqual((k["ingresos"], k["gastos"], k["balance"]), (Decimal("1000"), Decimal("350"), Decimal("650")))
+        self.assertEqual(k["faltan"], 1)
+        self.assertContains(r, 'id="dash-data"')
+        self.assertContains(r, "❌")
+        self.assertContains(r, "Netflix")
+
+    def test_dashboard_usd_only_usd(self):
+        r = self.client.get("/?moneda=USD")
+        k = r.context["kpis"]
+        self.assertEqual((k["ingresos"], k["gastos"], k["balance"]), (Decimal("40"), Decimal("15"), Decimal("25")))
+        self.assertEqual(k["faltan"], 0)
+
+    def test_dashboard_empty_db(self):
+        Detalle.objects.all().delete()
+        Recurrente.objects.all().delete()
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Todavía no hay movimientos")
+
+    def test_dashboard_bad_params_fall_back(self):
+        r = self.client.get("/?moneda=EUR&mes=basura&desde=x&hasta=y")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context["moneda"], "ARS")
+
+    def test_mes_param_selects_month(self):
+        r = self.client.get("/?mes=2026-08")
+        self.assertEqual(r.context["kpis"]["gastos"], Decimal("70"))
+
+
+class MovimientosListTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        self.root = Categoria.objects.create(name="Servicios")
+        self.child = Categoria.objects.create(name="Luz", parent=self.root)
+        mov(2026, 9, 10, "-300", categoria=self.child, desc="EDESUR")
+        mov(2026, 9, 11, "-50", desc="SIN CAT SEP")
+        mov(2026, 8, 11, "-70", desc="SIN CAT AGO")
+        mov(2026, 9, 12, "-9", moneda="USD", desc="SIN CAT USD")
+
+    def test_sin_categoria_in_month(self):
+        r = self.client.get("/movimientos/?mes=2026-09&categoria=none")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["SIN CAT SEP"])
+        self.assertEqual(r.context["total"], Decimal("-50"))
+
+    def test_root_category_includes_descendants(self):
+        r = self.client.get(f"/movimientos/?mes=2026-09&categoria={self.root.pk}")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["EDESUR"])
+
+    def test_recurrente_filter(self):
+        rec = Recurrente.objects.create(
+            nombre="Edesur", patron="EDESUR", manual=True, moneda="ARS", fuente="cuenta")
+        r = self.client.get(f"/movimientos/?recurrente={rec.pk}")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["EDESUR"])
+
+    def test_tipo_and_moneda(self):
+        r = self.client.get("/movimientos/?mes=2026-09&moneda=USD&tipo=gasto")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["SIN CAT USD"])
+
+    def test_bad_params_do_not_crash(self):
+        self.assertEqual(self.client.get("/movimientos/?mes=zz&categoria=abc&recurrente=q").status_code, 200)
+
+
+class LegacyRedirectTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+
+    def test_redirects(self):
+        for old in ("/balance/", "/tarjetas/", "/categorias/"):
+            r = self.client.get(old)
+            self.assertEqual((r.status_code, r["Location"]), (302, "/"), old)
+        for old in ("/2026/09/", "/detalle/2026/09/"):
+            r = self.client.get(old)
+            self.assertEqual((r.status_code, r["Location"]), (302, "/movimientos/?mes=2026-09"), old)

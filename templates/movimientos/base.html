@@ -21,6 +21,7 @@
 
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
         <link href="{% static "css/bcoadmin.css" %}" rel="stylesheet" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 {#        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">#}
     {% block extra_head_content %}{% endblock %}
@@ -34,56 +35,17 @@
 
 
 
-        <!-- Dropdown Structure -->
-
-    <ul id="dropdown-months" class="dropdown-content">
-    {% if mymonths %}
-      {% for m in mymonths %}
-          <li><a class="waves-effect waves-blue" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
-      {% endfor %}
-    {% endif %}
-    </ul>
-
-    <nav class="nav-extended  teal lighten-2">
+    <nav class="teal lighten-2">
     <div class="nav-wrapper">
-          <a href="#" data-activates="slide-out" class="button-collapse  show-on-large"><i class="material-icons">date_range</i></a>
       <a href="/" class="brand-logo">Mis Cuentas</a>
-      <ul class="right hide-on-med-and-down">
-        <li><a href="/balance">Balance</a></li>
-        <li><a href="{% now "/Y/m/" %}">Detalle</a></li>
-        <li><a href="/tarjetas">Tarjetas</a></li>
-        <li><a href="/categorias">Categorias</a></li>
-        <!-- Dropdown Trigger -->
-{#        <li><a class="dropdown-button" href="#!" data-activates="dropdown1">2017<i class="material-icons right">arrow_drop_down</i></a></li>#}
-        <li><a class="btn-floating btn-large waves-effect teal" href="/upload">
-        <i class="material-icons">add</i></a></li>
-        <li><a class="btn-floating btn-large waves-effect teal" href="/sync">
-        <i class="material-icons">sync</i></a></li>
-
+      <ul class="right">
+        <li><a href="{% url 'dashboard' %}">Tablero</a></li>
+        <li><a href="{% url 'movimientos' %}">Movimientos</a></li>
+        <li><a href="{% url 'upload' %}">Importar</a></li>
+        <li><a href="{% url 'sync' %}">Sync</a></li>
+        <li><a href="/admin/">Admin</a></li>
       </ul>
     </div>
-{#    <div class="nav-content">#}
-{#      <ul class="tabs tabs-transparent">#}
-{#        <li class="tab"><a href="#test1">2016</a></li>#}
-{#        <li class="tab"><a href="#test4">2017</a></li>#}
-{#      </ul>#}
-{##}
-{#    </div>#}
-    {% if mymonths %}
-        <div class="nav-content">
-          <ul class="tabs tabs-transparent">
-              {% for m in mymonths %}
-                  {% if month|date:"m" == m|date:"m" %}
-                      <li class="tab col s2"><a class="active" target="_self" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
-                  {% else %}
-                      <li class="tab col s2"><a target="_self" href="{{ m|date:"/Y/m/" }}">{{ m|date:"F" }}</a></li>
-                  {% endif %}
-              {% endfor %}
-
-          </ul>
-
-        </div>
-    {% endif %}
   </nav>
     <div class="content">
 	            <div class="container">
@@ -113,8 +75,6 @@
     });
 
 
-  // Initialize collapse button
-  $(".button-collapse").sideNav();
   // Initialize collapsible (uncomment the line below if you use the dropdown variation)
   //$('.collapsible').collapsible();
 

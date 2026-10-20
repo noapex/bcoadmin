@@ -1,259 +1,128 @@
 # -*- coding: utf-8 -*-
-from django.views.generic.dates import MonthArchiveView
-from django.views.generic.edit import FormView
-from .forms import FileFieldForm
-from django.shortcuts import redirect, render
-from .models import DataFile, Detalle
-import numpy as np
-import pandas as pd
-import datetime
-import time
-import re
-from django.conf import settings
-from collections import OrderedDict
-from django.contrib.auth.decorators import login_required
-import math
-from django.db.models import Q
-from datetime import timedelta
-import locale
-from .get_movs import download_movs
-from .services.importer import import_files
 import os
+import re
 import tempfile
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
-#locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
-class DetalleMonthArchiveView(MonthArchiveView):
-    queryset = Detalle.objects.filter(activo=True)
-    date_field = "fecha"
-    allow_future = True
+from django.db.models import Sum
+from django.shortcuts import render
 
-    def get_context_data(self, **kwargs):
-        today = datetime.date.today()
-        from_date = datetime.datetime.strptime("{} {} {}".format(today.year-1, today.month, 1), "%Y %m %d")
-        context = super(DetalleMonthArchiveView, self).get_context_data(**kwargs)
-        # context['mymonths'] = Detalle.objects.filter(fecha__year=myyear).dates('fecha', 'month', order='DESC')
-        context['mymonths'] = Detalle.objects.filter(activo=True, fecha__gte=from_date).dates('fecha', 'month', order='DESC')
-        return context
+from .forms import FileFieldForm
+from .get_movs import download_movs
+from .models import Categoria, Detalle, Recurrente
+from .services import recurring, stats
+from .services.importer import import_files
 
-
-def balance():
-    my_tarjetas = settings.TARJETAS
-    ignore = settings.IGNORAR
-    balance = dict()
-    ingresos = dict()
-    egresos = dict()
-    extracciones = dict()
-    sircreb = dict()
-    tarjetas = dict()
-    cur_month = None
-    categorias = dict()
-
-    categorias_gastos = settings.CATEGORIAS_GASTOS
-
-    class StopLooking(Exception):
-        pass
-
-    today = datetime.date.today()
-    for row in Detalle.objects.filter(activo=True, fecha__date__gt=today-timedelta(days=365*2)).order_by('fecha'):
-        # row.monto = float("{0:.2f}".format(row.monto))
-
-        try:
-            for ign in ignore:
-                if re.match('.*{}.*'.format(ign), row.descripcion, re.IGNORECASE):
-                    print('Mov. ignorado:', row.descripcion)
-                    raise StopLooking()
-        except StopLooking:
-            continue
-
-        if not row.monto:
-            row.monto = np.nan
-
-        # Si es el primer registro de un mes (cur_month es distinto al mes porque pasamos al primer
-        # registro del mes siguiente)
-        if cur_month != row.fecha.month:
-            cur_month = row.fecha.month
-            year_month = '{:d}{:02d}'.format(row.fecha.year, row.fecha.month)
-            year_month = datetime.datetime.strptime(year_month, '%Y%m')
-            balance[year_month] = dict()
-            categorias[year_month] = dict()
-
-            for cat, v in categorias_gastos.items():
-                # categoria simple
-                if isinstance(v, list):
-                    categorias[year_month][cat] = dict()
-                    categorias[year_month][cat]['total'] = 0
-                    categorias[year_month][cat]['movs'] = list()
-
-                    if isinstance(v, str):
-                        v = [v]
-                    for vv in v:
-                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat]['movs']:
-                            # categorias[year_month][cat] = row.monto
-                            categorias[year_month][cat]['total'] = row.monto
-                            categorias[year_month][cat]['movs'].append(row)
-
-                # categoria c subcat
-                elif isinstance(v, dict):
-                    categorias[year_month][cat] = dict()
-
-                    for subcat, vv in v.items():
-                        categorias[year_month][cat][subcat] = dict()
-                        categorias[year_month][cat][subcat]['total'] = 0
-                        categorias[year_month][cat][subcat]['movs'] = list()
-
-                        if isinstance(vv, str):
-                            vv = [vv]
-                        for mystr in vv:
-                            if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat][subcat]['movs']:
-                                categorias[year_month][cat][subcat]['total'] = row.monto
-                                categorias[year_month][cat][subcat]['movs'].append(row)
+MONEDAS = ("ARS", "USD")
+MES_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3}
+ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅"}
 
 
-            # tarjetas
-            for t, n in my_tarjetas.items():
-                for mystr in n:
-                    if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
-                        tarjetas[year_month] = {t: row.monto}
-                    else:
-                        if year_month not in tarjetas:
-                            tarjetas[year_month] = {t: 0}
-                        else:
-                            tarjetas[year_month].update({t: 0})
-
-            # ingresos y egresos
-            if row.monto > 0:
-                balance[year_month]['ingresos'] = row.monto
-                balance[year_month]['egresos'] = np.nan
-
-            else:
-                balance[year_month]['ingresos'] = np.nan
-                balance[year_month]['egresos'] = row.monto
-
-            balance[year_month]['balance'] = row.monto
-        #
-        # El resto de los movimientos de un mes
-        else:
-            # tarjetas
-            for t, n in my_tarjetas.items():
-                for mystr in n:
-                    if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE):
-                        if t in tarjetas[year_month]:
-                            tarjetas[year_month][t] = tarjetas[year_month][t] + row.monto
-                        else:
-                            tarjetas[year_month].update({t: row.monto})
-                        # python 3 solamente:
-                        # tarjetas[year_month] = {**tarjetas[year_month], **{t: row.monto}}
-
-                    if t not in tarjetas[year_month]:
-                        tarjetas[year_month][t] = 0
-
-            for cat, v in categorias_gastos.items():
-                # cat simple
-                if isinstance(v, list):
-                    for vv in v:
-                        if re.match('.*{}.*'.format(vv), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat]['movs']:
-                            # categorias[year_month][cat] = round(np.nansum([categorias[year_month][cat], row.monto]), 2)
-                            categorias[year_month][cat]['total'] = round(np.nansum([categorias[year_month][cat]['total'], row.monto]), 2)
-                            categorias[year_month][cat]['movs'].append(row)
-
-                # cat con subcat
-                elif isinstance(v, dict):
-                    for subcat, vv in v.items():
-                        if not isinstance(mystr, list):
-                            mystr = [mystr]
-                            if isinstance(vv, str):
-                                vv = [vv]
-                            for mystr in vv:
-                                if re.match('.*{}.*'.format(mystr), row.descripcion, re.IGNORECASE) and row not in categorias[year_month][cat][subcat]['movs']:
-                                    categorias[year_month][cat][subcat]['total'] = round(np.nansum([categorias[year_month][cat][subcat]['total'], row.monto]), 2)
-                                    categorias[year_month][cat][subcat]['movs'].append(row)
+def _mes(value):
+    return value if value and MES_RE.match(value) else None
 
 
-            # balance
-            balance[year_month]['balance'] = round(np.nansum([balance[year_month]['balance'], row.monto]), 2)
-
-            # ingresos y egresos
-            if row.monto > 0:
-                balance[year_month]['ingresos'] = round(np.nansum([balance[year_month]['ingresos'], row.monto]), 2)
-            else:
-                balance[year_month]['egresos'] = round(np.nansum([balance[year_month]['egresos'], row.monto]), 2)
-
-        # Ordeno el dict de tarjetas por nombre de tarjeta para evitar problemas de orden
-        # cuando se llena la tabla del template
-        tarjetas[year_month] = dict(OrderedDict(sorted(tarjetas[year_month].items(), key=lambda t: t[0])))
-
-    for d, t in tarjetas.items():
-        t['total'] = round(sum(t.values()), 2)
-
-    id_count = 0
-    for i, v in categorias.items():
-        # i 2016-09-01 00:00:00
-        # v {'Servicios': {'Arba': 0, 'Aysa': -333.61}, 'Impuestos': {'Sircreb': -110.98}, 'Compras con débito': -7496.51, 'Extracciones': -15500.0}
-
-        for ii, vv in v.items():
-            # ii Impuestos
-            # vv {'Sircreb': -7.0}
-            # import pdb; pdb.set_trace()
-
-            if isinstance(vv, dict):
-                if 'total' in vv:
-                    categorias[i][ii]['total'] = vv['total']
-                else:
-                    categorias[i][ii]['total'] = round(sum([y['total'] for x, y in vv.items()]), 2)
-                if len(vv) > 2:
-                    for xx in vv:
-                        if isinstance(categorias[i][ii][xx], dict):
-                            categorias[i][ii][xx]['modal_id'] = id_count
-                            id_count += 1
-
-            categorias[i][ii]['modal_id'] = id_count
-            id_count += 1
-
-    return ({'balance': sorted(balance.items(), reverse=True),
-             'categorias': sorted(categorias.items(), reverse=True),
-             'ingresos': sorted(ingresos.items(), reverse=True),
-             'egresos': sorted(egresos.items(), reverse=True),
-             'extracciones': sorted(extracciones.items(), reverse=True),
-             'sircreb': sorted(sircreb.items(), reverse=True),
-             'tarjetas': sorted(tarjetas.items(), reverse=True),
-             'last_update': row.fecha,
-             })
+def _moneda(request):
+    value = request.GET.get("moneda", "ARS")
+    return value if value in MONEDAS else "ARS"
 
 
-
-def wrapper_view(request, operation):
-    my_data = balance()
-    if operation == 'dashboard':
-        return render(None, "movimientos/balance.html", my_data)
-    elif operation == 'balance':
-        return render(None, "movimientos/balance.html", my_data)
-    elif operation == 'tarjetas':
-        return render(None, "movimientos/tarjetas.html", my_data)
-    elif operation == 'categorias':
-        return render(None, "movimientos/categorias.html", my_data)
-    else:
-        my_data['operation'] = 'detalle'
-        return render(request, "movimientos/dashboard.html", my_data)
+def _shift(mes, n):
+    y, m = int(mes[:4]), int(mes[5:])
+    i = y * 12 + m - 1 + n
+    return "%04d-%02d" % (i // 12, i % 12 + 1)
 
 
-def update_movimientos(file_df):
-    added_movs = list()
-    #import pdb;pdb.set_trace()
-    for idx, row in file_df.iterrows():
-        if isinstance(row['monto'], str):
-            row['monto'] = locale.atof(row['monto'])
-        if math.isnan(row['monto']):
-            row['monto'] = None
-        if not Detalle.objects.filter(Q(codigo=idx, monto=row['monto'], fecha=row['fecha']) |
-                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=1)) |
-                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']+timedelta(days=2)) |
-                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=1)) |
-                                      Q(codigo=idx, monto=row['monto'], fecha=row['fecha']-timedelta(days=2))).exists():
-            d=Detalle.objects.create(codigo=idx, fecha=row['fecha'], cuenta=row['cuenta'], descripcion=row['descripcion'],
-                                  monto=row['monto'])
-            added_movs.append({'codigo': idx, 'fecha': row['fecha'], 'cuenta': row['cuenta'], 'descripcion': row['descripcion'], 'monto': row['monto'], 'id': d.id})
-    return added_movs
+def _f(value):
+    return float(value) if value is not None else None
+
+
+def _recurrentes(moneda):
+    items = []
+    for rec in Recurrente.objects.filter(moneda=moneda).exclude(estado_admin="silenciado"):
+        est = recurring.estado(rec)
+        items.append({"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, "")})
+    items.sort(key=lambda i: (ESTADO_ORDEN.get(i["estado"], 9), i["rec"].nombre))
+    return items
+
+
+def dashboard(request):
+    moneda = _moneda(request)
+    ultimo = stats.ultimo_mes_con_datos(moneda)
+    ctx = {"moneda": moneda, "vacio": ultimo is None}
+    if ultimo is None:
+        return render(request, "movimientos/dashboard.html", ctx)
+
+    hasta = _mes(request.GET.get("hasta")) or ultimo
+    desde = _mes(request.GET.get("desde")) or _shift(hasta, -11)
+    if desde > hasta:
+        desde = hasta
+    mes = _mes(request.GET.get("mes")) or hasta
+    if not desde <= mes <= hasta:
+        mes = hasta
+
+    totales = stats.monthly_totals(moneda, desde, hasta)
+    actual = next(t for t in totales if t["mes"] == mes)
+    recs = _recurrentes(moneda)
+    categorias = stats.spending_by_category(moneda, mes)
+    evol = stats.category_evolution(moneda, desde, hasta)
+    data = {
+        "moneda": moneda, "mes": mes,
+        "meses": [t["mes"] for t in totales],
+        "ingresos": [_f(t["ingresos"]) for t in totales],
+        "gastos": [_f(t["gastos"]) for t in totales],
+        "balance": [_f(t["balance"]) for t in totales],
+        "categorias": [{"nombre": n, "id": i, "total": _f(v)} for n, i, v in categorias],
+        "evolucion": {
+            "meses": evol["meses"],
+            "series": [{"nombre": s["nombre"], "id": s["id"], "valores": [_f(v) for v in s["valores"]]}
+                       for s in evol["series"]],
+        },
+    }
+    ctx.update({
+        "desde": desde, "hasta": hasta, "mes": mes,
+        "kpis": {"ingresos": actual["ingresos"], "gastos": actual["gastos"],
+                 "balance": actual["balance"],
+                 "faltan": sum(1 for r in recs if r["estado"] == "falta")},
+        "recurrentes": recs,
+        "data": data,
+    })
+    return render(request, "movimientos/dashboard.html", ctx)
+
+
+def movimientos_list(request):
+    moneda = _moneda(request)
+    qs = Detalle.objects.filter(activo=True, moneda=moneda)
+    mes = _mes(request.GET.get("mes"))
+    recurrente = request.GET.get("recurrente", "")
+    if mes is None and not recurrente:
+        mes = stats.ultimo_mes_con_datos(moneda)
+    if mes:
+        y, m = int(mes[:4]), int(mes[5:])
+        nxt = _shift(mes, 1)
+        qs = qs.filter(fecha__gte=date(y, m, 1), fecha__lt=date(int(nxt[:4]), int(nxt[5:]), 1))
+    categoria = request.GET.get("categoria", "")
+    if categoria == "none":
+        qs = qs.filter(categoria__isnull=True)
+    elif categoria.isdigit():
+        cat = Categoria.objects.filter(pk=int(categoria)).first()
+        qs = qs.filter(categoria__in=cat.get_descendants(include_self=True)) if cat else qs.none()
+    if recurrente.isdigit():
+        rec = Recurrente.objects.filter(pk=int(recurrente)).first()
+        qs = qs.filter(pk__in=recurring.movimientos_de(rec).values("pk")) if rec else qs.none()
+    tipo = request.GET.get("tipo", "")
+    if tipo in ("ingreso", "gasto", "interno"):
+        qs = qs.filter(tipo=tipo)
+    qs = qs.select_related("categoria").order_by("-fecha", "-pk")
+    total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
+    return render(request, "movimientos/movimientos_list.html", {
+        "movimientos": qs, "total": total, "moneda": moneda, "mes": mes,
+        "categoria": categoria, "tipo": tipo, "recurrente": recurrente,
+    })
+
 
 def sync(request):
     # Download into a fresh temp dir so any file found there is the new one.
