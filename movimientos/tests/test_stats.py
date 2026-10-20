@@ -200,6 +200,14 @@ class GastosPorTarjetaTests(TestCase):
         self.assertEqual(res["filas"][0]["total"], Decimal("130"))
         self.assertEqual(res["total"], {"valores": D("387", "291"), "total": Decimal("678")})
 
+    def test_unknown_card_source_folds_into_otras(self):
+        Tarjeta.objects.create(nombre="Naranja", codigo="9", fuente="naranja", patron_pago="naranja")
+        card(2026, 4, 12, "-9", "cuenta", desc="Pago naranja", categoria=self.sin)
+        res = gastos_por_tarjeta("ARS", "2026-03", "2026-04")
+        self.assertEqual(res["filas"][-1]["nombre"], "Otras tarjetas · pagos sin detalle")
+        self.assertEqual(res["filas"][-1]["valores"], D("0", "10"))
+        self.assertEqual(res["total"]["total"], Decimal("687"))
+
     def test_usd_isolated(self):
         res = gastos_por_tarjeta("USD", "2026-03", "2026-04")
         self.assertEqual([(f["nombre"], f["valores"]) for f in res["filas"]], [("Visa Gold · 5544", D("5", "0"))])

@@ -159,6 +159,12 @@ _ULTIMOS4 = re.compile(r"(\d{4})\s*$")
 OTRAS_TARJETAS = "Otras tarjetas"
 
 
+def tarjeta_de_fila(descripcion, patrones):
+    """Card a sin-detalle payment is shown under: a fuente in ORDEN_TARJETAS, or None ("Otras tarjetas")."""
+    fuente = tarjeta_de_pago(descripcion, patrones)
+    return fuente if fuente in ORDEN_TARJETAS else None
+
+
 def gastos_por_tarjeta(moneda, desde, hasta):
     """Monthly card spend (positive) per card source, plus account-side payments without detail.
 
@@ -167,7 +173,7 @@ def gastos_por_tarjeta(moneda, desde, hasta):
              "total": {"valores", "total"}}.
     Per card (visa, amex, master order): its row (gastos with that fuente: purchases + taxes - refunds)
     followed by its "pagos sin detalle" row (account payments categorised CAT_SIN_DETALLE matched to
-    the card via tarjeta_de_pago). Unmatched sin-detalle payments go last (fuente None).
+    the card via tarjeta_de_fila). Unmatched or unknown-card payments go last (fuente None).
     `categoria_id` is set on sin-detalle rows only.
     """
     meses = month_range(desde, hasta)
@@ -187,7 +193,7 @@ def gastos_por_tarjeta(moneda, desde, hasta):
     for r in (base.filter(fuente="cuenta", categoria__name=CAT_SIN_DETALLE)
               .values("m", "descripcion", "categoria_id").annotate(s=Sum("monto"))):
         cat_sin = r["categoria_id"]
-        sin_detalle[tarjeta_de_pago(r["descripcion"], patrones)][idx[r["m"].strftime("%Y-%m")]] -= _q(r["s"])
+        sin_detalle[tarjeta_de_fila(r["descripcion"], patrones)][idx[r["m"].strftime("%Y-%m")]] -= _q(r["s"])
 
     def fila(fuente, nombre, vals, es_sin):
         vals = [v.quantize(CENT) for v in vals]
