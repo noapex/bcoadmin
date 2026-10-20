@@ -78,6 +78,7 @@ def import_file(path, datafile=None):
         report.rechazado = True
         return report
     if result is None:
+        report.errores.append("Formato no reconocido")
         report.rechazado = True
         return report
     report.formato = result.formato
@@ -120,7 +121,12 @@ def import_files(paths):
             with open(path, "rb") as fh:
                 datafile = DataFile()
                 datafile.data.save(os.path.basename(str(path)), File(fh), save=True)
-            reports.append(import_file(path, datafile))
+            report = import_file(path, datafile)
+            if report.rechazado:
+                # A rejected file must not leave a DataFile row or media copy behind.
+                datafile.data.delete(save=False)
+                datafile.delete()
+            reports.append(report)
         except Exception as exc:
             reports.append(ImportReport(archivo=os.path.basename(str(path)), formato=None,
                                         errores=[f"{type(exc).__name__}: {exc}"], rechazado=True))

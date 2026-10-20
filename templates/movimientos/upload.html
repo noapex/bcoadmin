@@ -1,0 +1,58 @@
+{% extends 'movimientos/base.html' %}
+{% load static %}
+
+{% block title %}Importar archivos{% endblock %}
+
+{% block content %}
+    <br/>
+    {% if error %}
+        <p class="red-text">{{ error }}</p>
+    {% endif %}
+
+    {% if reports %}
+    <table class="highlight">
+        <thead>
+        <tr>
+            <th>Archivo</th>
+            <th>Formato</th>
+            <th>Nuevos</th>
+            <th>Duplicados</th>
+            <th>Omitidas</th>
+            <th>Errores</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in reports %}
+            <tr>
+                <td>{{ r.archivo }}</td>
+                <td>{{ r.formato|default:"-" }}</td>
+                <td>{{ r.nuevos }}</td>
+                <td>{{ r.duplicados }}</td>
+                <td>{{ r.omitidas }}</td>
+                <td>{% for e in r.errores %}<span class="red-text">{{ e }}</span>{% if not forloop.last %}<br/>{% endif %}{% endfor %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <hr>
+    {% endif %}
+
+    {% if form %}
+    <p>Se pueden subir resúmenes de Santander (cuenta, tarjetas) en .xls, .xlsx o .pdf, de a varios a la vez.</p>
+    <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="file-field input-field">
+            <div class="btn">
+                <span>Archivos</span>
+                <input type="file" name="file_field" accept=".xls,.xlsx,.pdf" multiple>
+            </div>
+            <div class="file-path-wrapper">
+                <input class="file-path validate" type="text" placeholder="Elegí uno o más archivos">
+            </div>
+        </div>
+        <button class="btn waves-effect waves-light" type="submit">Subir</button>
+    </form>
+    {% else %}
+    <a href="{% url 'upload' %}">Importar más archivos</a>
+    {% endif %}
+{% endblock %}

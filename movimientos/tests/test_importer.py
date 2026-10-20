@@ -125,7 +125,22 @@ class ImportFilesTests(TestCase):
             with override_settings(MEDIA_ROOT=media):
                 reports = import_files([str(bad), str(good)])
             self.assertTrue(reports[0].rechazado)
+            self.assertEqual(reports[0].errores, ["Formato no reconocido"])
             self.assertGreater(reports[1].nuevos, 0)
-            self.assertEqual(DataFile.objects.count(), 2)
+            self.assertEqual(DataFile.objects.count(), 1)
+            self.assertEqual(len(list(Path(media).iterdir())), 1)
             self.assertTrue(bad.exists() and good.exists())
             self.assertEqual(Detalle.objects.first().archivo_id, DataFile.objects.last().pk)
+
+    def test_rolled_back_file_leaves_no_datafile_or_copy(self):
+        res = ParseResult(formato="account_xlsx", resumenes=[], movimientos=[mov(date(2026, 10, 1), "1")])
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as media:
+            f = Path(tmp) / "x.xlsx"
+            f.write_text("x")
+            with override_settings(MEDIA_ROOT=media), \
+                    mock.patch.object(importer.parsers, "parse", return_value=res), \
+                    mock.patch.object(Detalle.objects, "create", side_effect=RuntimeError("boom")):
+                reports = import_files([str(f)])
+            self.assertTrue(reports[0].rechazado)
+            self.assertEqual(DataFile.objects.count(), 0)
+            self.assertEqual(list(Path(media).iterdir()), [])

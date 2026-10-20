@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.urls import include, re_path
 from django.contrib import admin
-from movimientos.views import DetalleMonthArchiveView, add_attachment, wrapper_view, sync
+from movimientos.views import DetalleMonthArchiveView, upload, wrapper_view, sync
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -24,7 +24,7 @@ urlpatterns = [
     re_path(r'accounts/', include('django.contrib.auth.urls')),
     # re_path(r'^balance/$', balance, name='dashboard'),
     re_path(r'^$', wrapper_view, {'operation': 'dashboard'}, name='main_view'),
-    re_path(r'^upload/', add_attachment, name='add_attachment'),
+    re_path(r'^upload/', upload, name='upload'),
     re_path(r'^sync/', sync, name='sync'),
     re_path(r'^(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
         DetalleMonthArchiveView.as_view(month_format='%m'),

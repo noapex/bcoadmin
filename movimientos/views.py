@@ -17,6 +17,10 @@ from django.db.models import Q
 from datetime import timedelta
 import locale
 from .get_movs import download_movs
+from .services.importer import import_files
+import os
+import tempfile
+from pathlib import Path
 #locale.setlocale(locale.LC_NUMERIC, 'es_AR.UTF-8')
 
 class DetalleMonthArchiveView(MonthArchiveView):
@@ -252,59 +256,35 @@ def update_movimientos(file_df):
     return added_movs
 
 def sync(request):
-    from .xls_parser import get_movimientos
-    import traceback
-    import os
-    suffix = hex(int(time.time()))[2:]
-    try:
-        os.rename(f'{settings.MEDIA_ROOT}/UltimosMovimientos.xls', f'{settings.MEDIA_ROOT}/UltimosMovimientos_{suffix}.xls')
-    except:
-        pass
+    # Download into a fresh temp dir so any file found there is the new one.
+    with tempfile.TemporaryDirectory() as tmp:
+        download_movs(tmp)
+        downloaded = sorted(Path(tmp).iterdir())
+        if not downloaded:
+            return render(request, 'movimientos/upload.html', {'error': "No se descargó el archivo"})
+        reports = import_files([str(downloaded[0])])
+    return render(request, 'movimientos/upload.html', {'reports': reports})
 
-    before = os.listdir(settings.MEDIA_ROOT)
-    download_movs(settings.MEDIA_ROOT)
-    after = os.listdir(settings.MEDIA_ROOT)
-    change = set(after) - set(before)
-    if len(change) == 0:
-        return render(None, 'movimientos/add_attachment_error.html', {'msg': "No se descargó el archivo"})
-    file_name = change.pop()
-    file_count = 1
-    file_df = get_movimientos(f'{settings.MEDIA_ROOT}/{file_name}')
-    suffix = hex(int(time.time()))[2:]
-    os.rename(f'{settings.MEDIA_ROOT}/{file_name}', f'{settings.MEDIA_ROOT}/{file_name.split(".")[0]}_{suffix}.xlsx')
 
-    if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
-        return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
-    else:
-        added_movs = update_movimientos(file_df)
-    return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
-
-def add_attachment(request):
-    from .xls_parser import get_movimientos
-    import traceback
-
-    files = request.FILES.getlist('myfiles')
-    added_movs = list()
-    if len(files) > 0:
-        file_count = 0
-        for a_file in files:
-            file_count += 1
-            instance = DataFile(
-                data=a_file
-            )
-            instance.save()
-            filename = instance.data.path
-
-            try:
-                file_df = get_movimientos(filename)
-            except:
-                print(traceback.format_exc())
-
-            if not isinstance(file_df, pd.core.frame.DataFrame) or file_df.empty:
-                return render(None, 'movimientos/add_attachment_error.html', {'msg': "Archivo inválido"})
-
-            else:
-                added_movs.extend(update_movimientos(file_df))
-        return render(None, 'movimientos/add_attachment_done.html', {'file_count': file_count, 'mov_count': len(added_movs), 'added_movs': added_movs})
-    return render(request, "movimientos/add_attachment.html")
-
+def upload(request):
+    form = FileFieldForm()
+    if request.method == 'POST':
+        files = request.FILES.getlist('file_field')
+        if not files:
+            return render(request, 'movimientos/upload.html',
+                          {'form': form, 'error': "Seleccioná al menos un archivo"})
+        # Each upload gets its own directory so same-named files cannot collide and
+        # the original filename/extension (needed for format detection) is kept.
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for n, f in enumerate(files):
+                folder = Path(tmp) / str(n)
+                folder.mkdir()
+                path = folder / (os.path.basename(f.name) or 'archivo')
+                with open(path, 'wb') as out:
+                    for chunk in f.chunks():
+                        out.write(chunk)
+                paths.append(str(path))
+            reports = import_files(paths)
+        return render(request, 'movimientos/upload.html', {'form': form, 'reports': reports})
+    return render(request, 'movimientos/upload.html', {'form': form})
