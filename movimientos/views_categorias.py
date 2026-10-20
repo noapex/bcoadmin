@@ -1,9 +1,10 @@
 """In-app management (ABM) of categories and their classification rules."""
+import logging
 from collections import defaultdict
 
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -12,10 +13,28 @@ from .models import Categoria, Detalle, Regla
 from .services.classify import CATEGORIAS_RESERVADAS, clasificar_todo
 
 
-def _reclasificar(request, hecho):
-    n = clasificar_todo()
-    messages.success(request, f"{hecho}. Reclasificados {n} movimientos.")
+logger = logging.getLogger(__name__)
+
+
+def _aplicar(request, cambio, hecho):
+    """Run `cambio()` and the reclassification in one transaction, flash the outcome, back to the list.
+
+    `cambio` may return an extra sentence (or None) for the success message. Any failure rolls both back.
+    """
+    try:
+        with transaction.atomic():
+            extra = cambio()
+            n = clasificar_todo()
+    except Exception:
+        logger.exception("Category/rule change rolled back")
+        messages.error(request, "Falló la reclasificación de movimientos. No se aplicó ningún cambio.")
+        return redirect("categorias_gestionar")
+    messages.success(request, " ".join(filter(None, [f"{hecho}.", extra, f"{n} movimientos actualizados."])))
     return redirect("categorias_gestionar")
+
+
+def _aviso_manuales(n):
+    return f"{n} movimientos asignados a mano vuelven a las reglas." if n else ""
 
 
 def _rechazar(request, mensaje):
@@ -27,9 +46,12 @@ def categorias_gestionar(request):
     reglas = defaultdict(list)
     for regla in Regla.objects.order_by("prioridad", "id"):
         reglas[regla.categoria_id].append(regla)
-    cuenta = dict(Detalle.objects.filter(categoria__isnull=False)
-                  .values_list("categoria").annotate(n=Count("id")).order_by())
+    cuenta, manuales = {}, {}
+    for cid, n, m in (Detalle.objects.filter(categoria__isnull=False).values_list("categoria")
+                      .annotate(n=Count("id"), m=Count("id", filter=Q(categoria_manual=True))).order_by()):
+        cuenta[cid], manuales[cid] = n, m
     items = [{"cat": c, "reglas": reglas[c.pk], "movimientos": cuenta.get(c.pk, 0),
+              "aviso_manuales": _aviso_manuales(manuales.get(c.pk, 0)),
               "reservada": c.name in CATEGORIAS_RESERVADAS}
              for c in Categoria.objects.order_by("tree_id", "lft")]
     return render(request, "movimientos/categorias_gestionar.html",
@@ -40,8 +62,10 @@ def _categoria_form(request, cat):
     initial = {} if cat else {"parent": request.GET.get("parent")}
     form = CategoriaForm(request.POST or None, instance=cat, initial=initial)
     if request.method == "POST" and form.is_valid():
-        form.save()
-        return _reclasificar(request, f"Categoría “{form.instance.name}” guardada")
+        def guardar():
+            form.save()
+
+        return _aplicar(request, guardar, f"Categoría “{form.cleaned_data['name']}” guardada")
     titulo = f"Editar categoría “{cat.name}”" if cat else "Nueva categoría"
     return render(request, "movimientos/abm_form.html", {"form": form, "titulo": titulo})
 
@@ -61,12 +85,15 @@ def categoria_borrar(request, pk):
         return _rechazar(request, f"“{cat.name}” es una categoría del sistema: no se puede borrar.")
     if cat.get_children().exists():
         return _rechazar(request, f"“{cat.name}” tiene subcategorías: movelas o borralas primero.")
-    with transaction.atomic():
+    def borrar():
         Regla.objects.filter(categoria=cat).delete()
-        # Manual assignments to a deleted category go back to the rules.
+        # Manual assignments to a deleted category go back to the rules; the owner is told how many.
+        manuales = Detalle.objects.filter(categoria=cat, categoria_manual=True).count()
         Detalle.objects.filter(categoria=cat).update(categoria=None, categoria_manual=False)
         cat.delete()
-    return _reclasificar(request, f"Categoría “{cat.name}” borrada")
+        return _aviso_manuales(manuales)
+
+    return _aplicar(request, borrar, f"Categoría “{cat.name}” borrada")
 
 
 def _regla_form(request, regla, cat):
@@ -75,8 +102,11 @@ def _regla_form(request, regla, cat):
         nueva = form.save(commit=False)
         if regla is None:
             nueva.categoria = cat
-        nueva.save()
-        return _reclasificar(request, f"Regla “{nueva.patron}” guardada")
+
+        def guardar():
+            nueva.save()
+
+        return _aplicar(request, guardar, f"Regla “{nueva.patron}” guardada")
     titulo = (f"Editar regla de “{cat.name}”" if regla else f"Nueva regla para “{cat.name}”") if cat \
         else "Editar regla"
     return render(request, "movimientos/abm_form.html", {"form": form, "titulo": titulo})
@@ -94,5 +124,8 @@ def regla_editar(request, pk):
 @require_POST
 def regla_borrar(request, pk):
     regla = get_object_or_404(Regla, pk=pk)
-    regla.delete()
-    return _reclasificar(request, f"Regla “{regla.patron}” borrada")
+
+    def borrar():
+        regla.delete()
+
+    return _aplicar(request, borrar, f"Regla “{regla.patron}” borrada")

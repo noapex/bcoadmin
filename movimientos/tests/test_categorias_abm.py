@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -52,7 +54,7 @@ class CategoriaTests(AbmBase):
     def test_create_with_parent(self):
         r = self.post("categoria_nueva", {"name": "Agua", "parent": self.servicios.pk})
         self.assertRedirects(r, reverse("categorias_gestionar"))
-        self.assertContains(r, "Reclasificados 0 movimientos")
+        self.assertContains(r, "0 movimientos actualizados")
         self.assertEqual(Categoria.objects.get(name="Agua").parent, self.servicios)
 
     def test_create_root(self):
@@ -67,7 +69,7 @@ class CategoriaTests(AbmBase):
 
     def test_rename_and_move(self):
         r = self.post("categoria_editar", {"name": "Electricidad", "parent": self.auto.pk}, self.luz.pk)
-        self.assertContains(r, "Reclasificados")
+        self.assertContains(r, "movimientos actualizados")
         self.luz.refresh_from_db()
         self.assertEqual((self.luz.name, self.luz.parent), ("Electricidad", self.auto))
 
@@ -87,9 +89,14 @@ class CategoriaTests(AbmBase):
     def test_delete_leaf_cleans_rules_and_movements(self):
         Regla.objects.create(patron="nafta", categoria=self.auto)
         manual = det("YPF", categoria=self.auto, manual=True)
+        det("YPF 2", categoria=self.auto, manual=True)
+        det("YPF 3", categoria=self.auto)
+        lista = self.client.get(reverse("categorias_gestionar"))
+        self.assertContains(lista, "2 movimientos asignados a mano vuelven a las reglas")
         r = self.post("categoria_borrar", None, self.auto.pk)
+        self.assertContains(r, "2 movimientos asignados a mano vuelven a las reglas")
         self.assertRedirects(r, reverse("categorias_gestionar"))
-        self.assertContains(r, "Reclasificados")
+        self.assertContains(r, "movimientos actualizados")
         self.assertFalse(Categoria.objects.filter(pk=self.auto.pk).exists())
         self.assertFalse(Regla.objects.exists())
         manual.refresh_from_db()
@@ -120,7 +127,7 @@ class ReglaTests(AbmBase):
         otro = det("OTRO")
         r = self.post("regla_nueva", self.regla_data(), self.auto.pk)
         self.assertRedirects(r, reverse("categorias_gestionar"))
-        self.assertContains(r, "Reclasificados 2 movimientos")  # comercio filled on both
+        self.assertContains(r, "movimientos actualizados")
         coto.refresh_from_db()
         otro.refresh_from_db()
         self.assertEqual((coto.categoria, otro.categoria), (self.auto, None))
@@ -149,7 +156,7 @@ class ReglaTests(AbmBase):
         det("JUMBO")
         r = self.post("regla_editar", self.regla_data(patron="^jum", es_regex="on", fuente="cuenta",
                                                       moneda="ARS", prioridad=5, tipo="gasto"), regla.pk)
-        self.assertContains(r, "Reclasificados")
+        self.assertContains(r, "movimientos actualizados")
         regla.refresh_from_db()
         self.assertEqual((regla.patron, regla.es_regex, regla.fuente, regla.moneda, regla.prioridad, regla.tipo),
                          ("^jum", True, "cuenta", "ARS", 5, "gasto"))
@@ -159,7 +166,54 @@ class ReglaTests(AbmBase):
         regla = Regla.objects.create(patron="coto", categoria=self.auto)
         d = det("COTO", categoria=self.auto)
         r = self.post("regla_borrar", None, regla.pk)
-        self.assertContains(r, "Reclasificados")
+        self.assertContains(r, "movimientos actualizados")
         self.assertFalse(Regla.objects.exists())
         d.refresh_from_db()
         self.assertIsNone(d.categoria)
+
+
+class ReclasificacionFallidaTests(AbmBase):
+    """A failing reclassification rolls the whole change back and shows an error, not a 500."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("movimientos.views_categorias.clasificar_todo", side_effect=RuntimeError("boom"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def post(self, *args):
+        with self.assertLogs("movimientos.views_categorias", "ERROR"):
+            return super().post(*args)
+
+    def assert_error(self, r):
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "No se aplicó ningún cambio")
+
+    def test_create_category_rolled_back(self):
+        self.assert_error(self.post("categoria_nueva", {"name": "Salud", "parent": ""}))
+        self.assertFalse(Categoria.objects.filter(name="Salud").exists())
+
+    def test_rename_rolled_back(self):
+        self.assert_error(self.post("categoria_editar", {"name": "Coche", "parent": ""}, self.auto.pk))
+        self.auto.refresh_from_db()
+        self.assertEqual(self.auto.name, "Auto")
+
+    def test_delete_category_rolled_back(self):
+        Regla.objects.create(patron="nafta", categoria=self.auto)
+        d = det("YPF", categoria=self.auto, manual=True)
+        self.assert_error(self.post("categoria_borrar", None, self.auto.pk))
+        self.assertTrue(Categoria.objects.filter(pk=self.auto.pk).exists())
+        self.assertEqual(Regla.objects.count(), 1)
+        d.refresh_from_db()
+        self.assertEqual((d.categoria, d.categoria_manual), (self.auto, True))
+
+    def test_rule_changes_rolled_back(self):
+        data = {"patron": "coto", "es_regex": "", "fuente": "", "moneda": "", "prioridad": 100, "tipo": ""}
+        self.assert_error(self.post("regla_nueva", data, self.auto.pk))
+        self.assertFalse(Regla.objects.exists())
+        regla = Regla.objects.create(patron="coto", categoria=self.auto)
+        self.assert_error(self.post("regla_editar", dict(data, patron="jumbo"), regla.pk))
+        regla.refresh_from_db()
+        self.assertEqual(regla.patron, "coto")
+        self.assert_error(self.post("regla_borrar", None, regla.pk))
+        self.assertTrue(Regla.objects.filter(pk=regla.pk).exists())

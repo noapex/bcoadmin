@@ -35,7 +35,7 @@
         <a href="{% url 'categoria_nueva' %}?parent={{ i.cat.pk }}" title="Nueva subcategoría"><i class="material-icons">create_new_folder</i></a>
         <a href="{% url 'categoria_editar' i.cat.pk %}" title="Editar"><i class="material-icons">edit</i></a>
         {% if not i.reservada %}
-        <form method="post" action="{% url 'categoria_borrar' i.cat.pk %}" onsubmit="return confirm('¿Borrar la categoría «{{ i.cat.name|escapejs }}» y sus reglas?');">
+        <form method="post" action="{% url 'categoria_borrar' i.cat.pk %}" onsubmit="return confirm('¿Borrar la categoría «{{ i.cat.name|escapejs }}» y sus reglas?{% if i.aviso_manuales %} {{ i.aviso_manuales|escapejs }}{% endif %}');">
           {% csrf_token %}
           <button type="submit" class="btn-flat" title="Borrar"><i class="material-icons">delete</i></button>
         </form>
