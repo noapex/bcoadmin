@@ -74,8 +74,11 @@ class RecurrenteAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change:
             obj.manual = True
-        elif 'nombre' in form.changed_data:
-            obj.nombre_editado = True
+        else:
+            if 'nombre' in form.changed_data:
+                obj.nombre_editado = True
+            if {'frecuencia_meses', 'dia_habitual', 'fuente'} & set(form.changed_data):
+                obj.parametros_editados = True
         super().save_model(request, obj, form, change)
 
     @admin.action(description='Confirmar')

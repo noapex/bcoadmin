@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
 from ..models import Detalle, Recurrente, Resumen
@@ -35,12 +35,11 @@ def _add_months(year, month, n, day):
 
 
 def fecha_referencia(fuente):
-    """Latest imported date of a source: statement end, else latest movement."""
+    """Latest imported date of a source: max(latest statement end, latest movement)."""
     hasta = Resumen.objects.filter(fuente=fuente).aggregate(m=Max("hasta"))["m"]
-    if hasta:
-        return hasta
     ultima = Detalle.objects.filter(fuente=fuente).aggregate(m=Max("fecha"))["m"]
-    return _day(ultima) if ultima else None
+    fechas = [d for d in (hasta, _day(ultima) if ultima else None) if d]
+    return max(fechas) if fechas else None
 
 
 def _snap(gap):
@@ -98,14 +97,31 @@ def detectar_recurrentes(hoy=None):
         if rec is None:
             Recurrente.objects.create(nombre=comercio.title(), clave=comercio, moneda=moneda, **calc)
             continue
-        if rec.manual:
-            continue
+        if rec.manual or rec.parametros_editados:
+            continue  # refreshed below, keeping the owner's frequency/day/source
         for k, v in calc.items():
             setattr(rec, k, v)
         if not rec.nombre_editado:
             rec.nombre = comercio.title()
         rec.save()
+
+    owner_items = Recurrente.objects.filter(
+        Q(manual=True) & ~Q(patron="") | Q(manual=False, parametros_editados=True))
+    for rec in owner_items:
+        _refrescar(rec)
     return len(elegidos)
+
+
+def _refrescar(rec):
+    """Update ultima_fecha/monto_ref from the item's own movements; nothing else."""
+    ultimo = (movimientos_de(rec).filter(tipo="gasto", monto__isnull=False)
+              .order_by("-fecha", "-pk").values_list("fecha", "monto").first())
+    if ultimo is None:
+        return
+    fecha, monto = _day(ultimo[0]), abs(ultimo[1])
+    if (rec.ultima_fecha, rec.monto_ref) != (fecha, monto):
+        rec.ultima_fecha, rec.monto_ref = fecha, monto
+        rec.save(update_fields=["ultima_fecha", "monto_ref", "modified"])
 
 
 def movimientos_de(rec):
@@ -128,7 +144,10 @@ def _fue_atrasado(rec):
 
 
 def estado(rec, ref=None):
-    """pagado | pendiente | falta | atrasado | silenciado, judged against the source's last import."""
+    """pagado | pendiente | falta | inactivo | atrasado | silenciado, judged against the source's last import.
+
+    inactivo: missed for two or more expected periods (likely cancelled).
+    """
     if rec.estado_admin == "silenciado":
         return "silenciado"
     ref = ref or fecha_referencia(rec.fuente)
@@ -139,4 +158,7 @@ def estado(rec, ref=None):
     limite = esperado + timedelta(days=TOLERANCIA_DIAS)
     if ref < esperado:
         return "atrasado" if _fue_atrasado(rec) else "pagado"
-    return "pendiente" if ref < limite else "falta"
+    if ref < limite:
+        return "pendiente"
+    segundo = _add_months(u.year, u.month, 2 * rec.frecuencia_meses, rec.dia_habitual)
+    return "falta" if ref < segundo + timedelta(days=TOLERANCIA_DIAS) else "inactivo"

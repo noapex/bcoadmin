@@ -91,6 +91,7 @@ class Recurrente(TimeStampedModel):
     estado_admin = models.CharField(max_length=10, choices=ESTADOS, default="sugerido")
     manual = models.BooleanField(default=False)
     nombre_editado = models.BooleanField(default=False)
+    parametros_editados = models.BooleanField(default=False)  # owner edited frecuencia/dia/fuente
 
     class Meta:
         constraints = [models.UniqueConstraint(

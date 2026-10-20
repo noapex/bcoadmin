@@ -218,7 +218,7 @@ class DashboardTests(TestCase):
         mov(2026, 9, 7, "-15", moneda="USD")
         Recurrente.objects.create(
             nombre="Netflix", clave="netflix", moneda="ARS", fuente="cuenta", monto_ref=Decimal("19.99"),
-            ultima_fecha=date(2026, 6, 17), dia_habitual=17, estado_admin="confirmado")
+            ultima_fecha=date(2026, 8, 1), dia_habitual=1, estado_admin="confirmado")
 
     def test_dashboard_ars(self):
         r = self.client.get("/")
@@ -229,6 +229,20 @@ class DashboardTests(TestCase):
         self.assertContains(r, 'id="dash-data"')
         self.assertContains(r, "❌")
         self.assertContains(r, "Netflix")
+
+    def test_inactivo_not_counted_and_listed_last(self):
+        Recurrente.objects.create(
+            nombre="Aaa viejo", clave="viejo", moneda="ARS", fuente="cuenta",
+            ultima_fecha=date(2026, 6, 1), dia_habitual=1)
+        Recurrente.objects.create(
+            nombre="Zzz al dia", clave="aldia", moneda="ARS", fuente="cuenta",
+            ultima_fecha=date(2026, 9, 1), dia_habitual=1)
+        r = self.client.get("/")
+        self.assertEqual(r.context["kpis"]["faltan"], 1)
+        self.assertEqual([(i["rec"].nombre, i["estado"]) for i in r.context["recurrentes"]],
+                         [("Netflix", "falta"), ("Zzz al dia", "pagado"), ("Aaa viejo", "inactivo")])
+        self.assertContains(r, "💤")
+        self.assertContains(r, "· inactivo")
 
     def test_dashboard_usd_only_usd(self):
         r = self.client.get("/?moneda=USD")

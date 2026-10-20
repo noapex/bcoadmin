@@ -147,3 +147,80 @@ class ImporterWiringTests(TestCase):
         with mock.patch.object(importer, "detectar_recurrentes", side_effect=RuntimeError("boom")):
             reports = importer.import_files([])
         self.assertIn("recurrentes fallida", reports[-1].errores[0])
+
+
+class OwnerEditsAndManualRefreshTests(TestCase):
+    def test_edited_parameters_survive_detection(self):
+        monthly("edesur", MAY_SEP, 17)
+        detectar_recurrentes()
+        Recurrente.objects.update(frecuencia_meses=2, dia_habitual=3, parametros_editados=True)
+        gasto("edesur", 2026, 10, 17, monto="-2000")
+        detectar_recurrentes()
+        rec = Recurrente.objects.get()
+        self.assertEqual((rec.frecuencia_meses, rec.dia_habitual, rec.fuente), (2, 3, "cuenta"))
+        self.assertEqual((rec.ultima_fecha, rec.monto_ref), (date(2026, 10, 17), Decimal("2000")))
+
+    def test_edited_fuente_survives_detection(self):
+        monthly("edesur", MAY_SEP, 17)
+        monthly("edesur", MAY_SEP, 20, fuente="visa")
+        detectar_recurrentes()
+        rec = Recurrente.objects.get()
+        otra = "cuenta" if rec.fuente == "visa" else "visa"
+        Recurrente.objects.update(fuente=otra, parametros_editados=True)
+        detectar_recurrentes()
+        self.assertEqual(Recurrente.objects.get().fuente, otra)
+
+    def test_manual_item_refreshes_last_date_and_amount(self):
+        rec = Recurrente.objects.create(nombre="Gym", patron="GIMNASIO", moneda="ARS", fuente="cuenta",
+                                        manual=True, frecuencia_meses=3, dia_habitual=2)
+        gasto("gimnasio", 2026, 6, 2, monto="-500")
+        gasto("gimnasio", 2026, 9, 4, monto="-800")
+        g = gasto("gimnasio", 2026, 9, 30, monto="-900")
+        g.tipo = "interno"
+        g.save()
+        gasto("gimnasio", 2026, 9, 25, moneda="USD", monto="-5")
+        detectar_recurrentes()
+        rec.refresh_from_db()
+        self.assertEqual((rec.ultima_fecha, rec.monto_ref), (date(2026, 9, 4), Decimal("800")))
+        self.assertEqual((rec.frecuencia_meses, rec.dia_habitual), (3, 2))
+
+    def test_admin_edit_marks_parametros_editados(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        self.client.force_login(get_user_model().objects.create_superuser("adm", "a@x.com", "pw"))
+        rec = Recurrente.objects.create(nombre="Edesur", clave="edesur", moneda="ARS", fuente="cuenta",
+                                        frecuencia_meses=1, dia_habitual=17)
+        url = reverse("admin:movimientos_recurrente_change", args=[rec.pk])
+        data = {"nombre": "Edesur", "clave": "edesur", "patron": "", "moneda": "ARS", "fuente": "cuenta",
+                "frecuencia_meses": 1, "dia_habitual": 17, "estado_admin": "confirmado"}
+        self.client.post(url, data)
+        rec.refresh_from_db()
+        self.assertFalse(rec.parametros_editados)
+        data["dia_habitual"] = 20
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        rec.refresh_from_db()
+        self.assertTrue(rec.parametros_editados)
+
+
+class InactivoAndReferenceTests(TestCase):
+    def test_missed_two_periods_is_inactivo(self):
+        monthly("m", [(2026, 6), (2026, 7), (2026, 8)], 10)
+        detectar_recurrentes()
+        rec = Recurrente.objects.get()
+        # expected 2026-09-10; second expected 2026-10-10; tolerance 7 days
+        self.assertEqual(estado(rec, date(2026, 10, 16)), "falta")
+        self.assertEqual(estado(rec, date(2026, 10, 17)), "inactivo")
+        Recurrente.objects.update(frecuencia_meses=3)
+        rec.refresh_from_db()
+        # expected 2026-11-10; second expected 2027-02-10
+        self.assertEqual(estado(rec, date(2027, 2, 16)), "falta")
+        self.assertEqual(estado(rec, date(2027, 2, 17)), "inactivo")
+
+    def test_reference_is_max_of_statement_and_movements(self):
+        monthly("m", [(2026, 6), (2026, 7)], 10)
+        Resumen.objects.create(fuente="cuenta", hasta=date(2026, 7, 1))
+        self.assertEqual(fecha_referencia("cuenta"), date(2026, 7, 10))
+        Resumen.objects.create(fuente="cuenta", hasta=date(2026, 8, 1))
+        self.assertEqual(fecha_referencia("cuenta"), date(2026, 8, 1))
+        Resumen.objects.create(fuente="visa", hasta=date(2026, 5, 1))
+        self.assertEqual(fecha_referencia("visa"), date(2026, 5, 1))

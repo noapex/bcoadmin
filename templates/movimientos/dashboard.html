@@ -55,7 +55,7 @@
   <div class="box"><h5>Recurrentes</h5>
     {% for r in recurrentes %}
       <div class="rec">
-        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}">{{ r.icono }} {{ r.rec.nombre }}{% if r.rec.ultima_fecha %} <small class="grey-text">({{ r.rec.ultima_fecha|date:"d/m/Y" }})</small>{% endif %}</a>
+        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}" title="{{ r.etiqueta }}">{{ r.icono }} {{ r.rec.nombre }}{% if r.rec.ultima_fecha %} <small class="grey-text">({{ r.rec.ultima_fecha|date:"d/m/Y" }})</small>{% endif %}{% if r.estado == 'inactivo' %} <small class="grey-text">· {{ r.etiqueta|lower }}</small>{% endif %}</a>
         <span>{% if r.rec.monto_ref %}$ {{ r.rec.monto_ref|floatformat:"2g" }}{% endif %}</span>
       </div>
     {% empty %}

@@ -17,8 +17,10 @@ from .services.importer import import_files
 
 MONEDAS = ("ARS", "USD")
 MES_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
-ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3}
-ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅"}
+ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3, "inactivo": 4}
+ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅", "inactivo": "💤"}
+ESTADO_ETIQUETA = {"falta": "Falta", "pendiente": "Pendiente", "atrasado": "Pagado con atraso",
+                   "pagado": "Pagado", "inactivo": "Inactivo"}
 
 
 def _mes(value):
@@ -44,7 +46,8 @@ def _recurrentes(moneda):
     items = []
     for rec in Recurrente.objects.filter(moneda=moneda).exclude(estado_admin="silenciado"):
         est = recurring.estado(rec)
-        items.append({"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, "")})
+        items.append({"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, ""),
+                      "etiqueta": ESTADO_ETIQUETA.get(est, est)})
     items.sort(key=lambda i: (ESTADO_ORDEN.get(i["estado"], 9), i["rec"].nombre))
     return items
 
