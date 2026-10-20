@@ -13,6 +13,7 @@ from .. import parsers
 from ..models import DataFile, Detalle, Resumen
 from ..parsers.base import norm_ref
 from .classify import clasificar_todo
+from .recurring import detectar_recurrentes
 
 DATE_TOLERANCE_DAYS = 2
 AMOUNT_EPS = Decimal("0.005")
@@ -131,13 +132,14 @@ def import_files(paths):
         except Exception as exc:
             reports.append(ImportReport(archivo=os.path.basename(str(path)), formato=None,
                                         errores=[f"{type(exc).__name__}: {exc}"], rechazado=True))
-    try:
-        clasificar_todo()
-    except Exception as exc:
-        # Imports are already committed; report the failure without losing the reports.
-        msg = f"Clasificación fallida: {type(exc).__name__}: {exc}"
-        if reports:
-            reports[-1].errores.append(msg)
-        else:
-            reports.append(ImportReport(archivo="", formato=None, errores=[msg], rechazado=True))
+    for step, label in ((clasificar_todo, "Clasificación"), (detectar_recurrentes, "Detección de recurrentes")):
+        try:
+            step()
+        except Exception as exc:
+            # Imports are already committed; report the failure without losing the reports.
+            msg = f"{label} fallida: {type(exc).__name__}: {exc}"
+            if reports:
+                reports[-1].errores.append(msg)
+            else:
+                reports.append(ImportReport(archivo="", formato=None, errores=[msg], rechazado=True))
     return reports
