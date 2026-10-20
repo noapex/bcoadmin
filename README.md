@@ -32,8 +32,8 @@ fuente de verdad y cada cambio reclasifica los movimientos (salvo los asignados 
 `./manage.py seed_reglas` es opcional: importa una única vez la configuración vieja
 (`CATEGORIAS_GASTOS`, `TARJETAS`, `IGNORAR`, `INTERNOS` de los settings). Después de eso
 los settings ya no se usan para clasificar.
-Las tarjetas (`Tarjeta`, con el patrón que reconoce su pago desde la cuenta) se crean
-con ese mismo comando o desde el admin.
+
+Los patrones de pago de tarjeta (`Tarjeta.patron_pago`) se cargan una vez con `seed_reglas` o desde el admin.
 
 `importar` acepta los PDF mensuales de la cuenta, `movimientos.xlsx` y los
 "Último resumen" de las tarjetas; se pueden repetir sin duplicar movimientos.
