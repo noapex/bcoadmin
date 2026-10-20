@@ -1,13 +1,15 @@
 {# Period toolbar. `con_moneda`: show the Pesos/Dólares toggle (keeps the period). #}
 <div class="toolbar">
   {% if con_moneda %}
-  <a class="pill {% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS&desde={{ desde }}&hasta={{ hasta }}">Pesos</a>
-  <a class="pill {% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD&desde={{ desde }}&hasta={{ hasta }}">Dólares</a>
+  <div class="seg" role="group" aria-label="Moneda">
+    <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS&desde={{ desde }}&hasta={{ hasta }}">Pesos</a>
+    <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD&desde={{ desde }}&hasta={{ hasta }}">Dólares</a>
+  </div>
   {% endif %}
-  <form method="get" style="display:inline-flex;align-items:center;gap:4px">
+  <form method="get" class="periodo">
     {% if con_moneda %}<input type="hidden" name="moneda" value="{{ moneda }}">{% endif %}
-    Desde <input type="month" name="desde" value="{{ desde }}">
-    hasta <input type="month" name="hasta" value="{{ hasta }}">
-    <button class="btn-small teal" type="submit">Ver</button>
+    <label class="field"><span>Desde</span><input type="month" name="desde" value="{{ desde }}"></label>
+    <label class="field"><span>Hasta</span><input type="month" name="hasta" value="{{ hasta }}"></label>
+    <button class="btn btn-sm" type="submit"><svg class="ic ic-sm"><use href="#i-calendar"/></svg>Ver</button>
   </form>
 </div>

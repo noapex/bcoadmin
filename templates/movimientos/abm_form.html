@@ -2,18 +2,23 @@
 {% block title %}{{ titulo }}{% endblock %}
 
 {% block content %}
-<div class="page-head"><h5>{{ titulo }}</h5></div>
-<form method="post" class="abm-form">
+<div class="page-head">
+  <div>
+    <a class="back-link" href="{% url 'categorias_gestionar' %}"><svg class="ic ic-sm"><use href="#i-back"/></svg>Gestionar categorías</a>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+<form method="post" class="abm-form card form-card">
   {% csrf_token %}
-  {% for error in form.non_field_errors %}<p class="red-text">{{ error }}</p>{% endfor %}
+  {% for error in form.non_field_errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
   {% for field in form %}
-    <div class="abm-campo">
+    <div class="abm-campo{% if field.widget_type == 'checkbox' %} check{% endif %}">
       {% if field.widget_type == 'checkbox' %}
         {{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>
       {% else %}
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {% if field.widget_type == 'select' %}
-          <select name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="browser-default">
+          <select name="{{ field.html_name }}" id="{{ field.id_for_label }}">
             {% for value, label in field.field.choices %}
               <option value="{{ value }}"{% if field.value|stringformat:"s" == value|stringformat:"s" %} selected{% endif %}>{{ label }}</option>
             {% endfor %}
@@ -22,11 +27,13 @@
           {{ field }}
         {% endif %}
       {% endif %}
-      {% if field.help_text %}<small class="grey-text">{{ field.help_text }}</small>{% endif %}
-      {% for error in field.errors %}<p class="red-text">{{ error }}</p>{% endfor %}
+      {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+      {% for error in field.errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
     </div>
   {% endfor %}
-  <button class="btn teal" type="submit">Guardar</button>
-  <a class="btn-flat" href="{% url 'categorias_gestionar' %}">Cancelar</a>
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="{% url 'categorias_gestionar' %}">Cancelar</a>
+  </div>
 </form>
 {% endblock %}

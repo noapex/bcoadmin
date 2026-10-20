@@ -3,47 +3,51 @@
 
 {% block content %}
 <div class="page-head">
-  <h5>Gestionar categorías</h5>
-  <span>
-    <a class="btn teal" href="{% url 'categoria_nueva' %}">Nueva categoría</a>
-    <a class="btn-flat" href="{% url 'categorias' %}">Volver a Categorías</a>
-  </span>
+  <div>
+    <a class="back-link" href="{% url 'categorias' %}"><svg class="ic ic-sm"><use href="#i-back"/></svg>Volver a Categorías</a>
+    <h1>Gestionar categorías</h1>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{% url 'categoria_nueva' %}"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Nueva categoría</a>
+  </div>
 </div>
-<p class="nota">Cada cambio vuelve a clasificar todos los movimientos (salvo los asignados a mano).
+<p class="nota" style="margin:-6px 0 18px">Cada cambio vuelve a clasificar todos los movimientos (salvo los asignados a mano).
   Las reglas se evalúan por prioridad (menor primero); gana la primera que coincide.</p>
 
-<table class="abm">
+<div class="card table-card">
+<div class="tabla-scroll">
+<table class="t abm">
   <thead>
-    <tr><th>Categoría</th><th class="right-align">Movimientos</th><th>Reglas</th><th></th></tr>
+    <tr><th>Categoría</th><th class="r">Movimientos</th><th>Reglas</th><th class="r">Acciones</th></tr>
   </thead>
   <tbody>
   {% for i in items %}
     <tr class="{% if i.cat.level == 0 %}raiz{% endif %}">
-      <td style="padding-left:{% widthratio i.cat.level 1 24 %}px">
-        {{ i.cat.name }}{% if i.reservada %} <small class="grey-text">(del sistema)</small>{% endif %}
+      <td style="padding-left:calc(14px + {% widthratio i.cat.level 1 24 %}px); white-space:nowrap">
+        <span class="cat-name">{% if i.cat.level %}<span class="tree" aria-hidden="true">└</span>{% endif %}{{ i.cat.name }}{% if i.reservada %} <span class="badge b-accent">del sistema</span>{% endif %}</span>
       </td>
-      <td class="right-align">{{ i.movimientos }}</td>
-      <td>
+      <td class="r">{{ i.movimientos }}</td>
+      <td style="min-width:280px">
         {% for r in i.reglas %}
           {% include 'movimientos/_regla.html' %}
         {% empty %}
-          <span class="grey-text">Sin reglas</span>
+          <span class="chip">Sin reglas</span>
         {% endfor %}
-        <div><a href="{% url 'regla_nueva' i.cat.pk %}"><i class="material-icons tiny">add</i> regla</a></div>
+        <div><a class="link-add" href="{% url 'regla_nueva' i.cat.pk %}"><svg class="ic ic-sm"><use href="#i-plus"/></svg>regla</a></div>
       </td>
       <td class="acciones">
-        <a href="{% url 'categoria_nueva' %}?parent={{ i.cat.pk }}" title="Nueva subcategoría"><i class="material-icons">create_new_folder</i></a>
-        <a href="{% url 'categoria_editar' i.cat.pk %}" title="Editar"><i class="material-icons">edit</i></a>
+        <a class="icon-btn" href="{% url 'categoria_nueva' %}?parent={{ i.cat.pk }}" title="Nueva subcategoría" aria-label="Nueva subcategoría"><svg class="ic"><use href="#i-folder-plus"/></svg></a>
+        <a class="icon-btn" href="{% url 'categoria_editar' i.cat.pk %}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a>
         {% if not i.reservada %}
         <form method="post" action="{% url 'categoria_borrar' i.cat.pk %}" onsubmit="return confirm('¿Borrar la categoría «{{ i.cat.name|escapejs }}» y sus reglas?{% if i.aviso_manuales %} {{ i.aviso_manuales|escapejs }}{% endif %}');">
           {% csrf_token %}
-          <button type="submit" class="btn-flat" title="Borrar"><i class="material-icons">delete</i></button>
+          <button type="submit" class="icon-btn danger" title="Borrar" aria-label="Borrar"><svg class="ic"><use href="#i-trash"/></svg></button>
         </form>
         {% endif %}
       </td>
     </tr>
   {% empty %}
-    <tr><td colspan="4">Todavía no hay categorías.</td></tr>
+    <tr><td colspan="4"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>Todavía no hay categorías.</p></td></tr>
   {% endfor %}
   {% if reglas_sin_categoria %}
     <tr class="raiz">
@@ -53,4 +57,6 @@
   {% endif %}
   </tbody>
 </table>
+</div>
+</div>
 {% endblock %}

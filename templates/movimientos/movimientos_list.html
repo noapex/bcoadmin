@@ -4,48 +4,56 @@
 
 {% block extra_head_content %}
     {{ block.super }}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/css/theme.materialize.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.1/js/jquery.tablesorter.widgets.min.js"></script>
 {% endblock %}
 
 {% block content %}
-<br/>
-<p>
-  {{ moneda }}{% if mes %} · {{ mes }}{% endif %}{% if categoria %} · categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}{% endif %}{% if tipo %} · {{ tipo }}{% endif %}{% if fuente %} · fuente: {{ fuente }}{% endif %}{% if tarjeta %} · pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}{% endif %}{% if recurrente %} · recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}{% endif %}
-  — <a href="{% url 'dashboard' %}?moneda={{ moneda }}">volver al tablero</a>
+<div class="page-head">
+  <div>
+    <h1>Movimientos</h1>
+    <p class="sub">{{ movimientos|length }} movimiento{{ movimientos|length|pluralize }} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b></p>
+  </div>
+</div>
+<p class="filtros">
+  <span class="badge b-accent">{{ moneda }}</span>{% if mes %}<span class="badge">{{ mes }}</span>{% endif %}{% if categoria %}<span class="badge">categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}</span>{% endif %}{% if tipo %}<span class="badge {% if tipo == 'ingreso' %}b-pos{% elif tipo == 'gasto' %}b-neg{% endif %}">{{ tipo }}</span>{% endif %}{% if fuente %}<span class="badge">fuente: {{ fuente }}</span>{% endif %}{% if tarjeta %}<span class="badge">pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}</span>{% endif %}{% if recurrente %}<span class="badge">recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}</span>{% endif %}
+  <a class="back-link" href="{% url 'dashboard' %}?moneda={{ moneda }}"><svg class="ic ic-sm"><use href="#i-back"/></svg>volver al tablero</a>
 </p>
-<table class="highlight" id="movs">
+<div class="card table-card">
+<div class="tabla-scroll tall">
+<table class="t" id="movs">
   <thead>
     <tr>
       <th>Fecha</th><th>Fuente</th><th>Descripción</th><th>Cuota</th>
-      <th>Monto</th><th>Tipo</th><th>Categoría</th><th>Editar</th>
+      <th class="r">Monto</th><th>Tipo</th><th>Categoría</th><th class="sorter-false filter-false">Editar</th>
     </tr>
   </thead>
   <tbody>
   {% for d in movimientos %}
     <tr>
-      <td>{{ d.fecha|date:"d/m/Y" }}</td>
+      <td class="num" style="white-space:nowrap">{{ d.fecha|date:"d/m/Y" }}</td>
       <td>{{ d.fuente }}</td>
-      <td>{{ d.descripcion }}</td>
-      <td>{{ d.cuota }}</td>
-      <td class="right-align {% if d.monto < 0 %}neg{% endif %}">{{ d.monto|floatformat:"2g" }}</td>
-      <td>{{ d.tipo }}</td>
-      <td>{{ d.categoria.name|default:"Sin categoría" }}</td>
-      <td><a href="{% url 'admin:movimientos_detalle_change' d.pk %}"><i class="material-icons">edit</i></a></td>
+      <td class="desc-cell">{{ d.descripcion }}</td>
+      <td class="num">{{ d.cuota }}</td>
+      <td class="r {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap">{{ d.monto|floatformat:"2g" }}</td>
+      <td class="tipo">{{ d.tipo }}</td>
+      <td class="cat-cell">{{ d.categoria.name|default:"Sin categoría" }}</td>
+      <td><a class="icon-btn" href="{% url 'admin:movimientos_detalle_change' d.pk %}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a></td>
     </tr>
   {% empty %}
-    <tr><td colspan="8">No hay movimientos para este filtro.</td></tr>
+    <tr><td colspan="8"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>No hay movimientos para este filtro.</p></td></tr>
   {% endfor %}
   </tbody>
   <tbody class="tablesorter-infoOnly">
-    <tr><th colspan="4">Total</th><th class="right-align">{{ total|floatformat:"2g" }}</th><th colspan="3"></th></tr>
+    <tr><th colspan="4">Total</th><th class="r">{{ total|floatformat:"2g" }}</th><th colspan="3"></th></tr>
   </tbody>
 </table>
+</div>
+</div>
 <script>
   $(function () {
-    $("#movs").tablesorter({theme: "materialize", widthFixed: true, widgets: ["filter"],
-      widgetOptions: {filter_cssFilter: ["", "", "browser-default"]}});
+    $("#movs").tablesorter({theme: "app", widthFixed: false, widgets: ["filter"],
+      widgetOptions: {filter_placeholder: {search: "Filtrar…"}}});
   });
 </script>
 {% endblock %}

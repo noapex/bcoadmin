@@ -1,14 +1,16 @@
 {# One rule line with edit/delete actions; expects `r` (Regla). #}
 <div class="regla">
   <code>{{ r.patron }}</code>
-  <small class="grey-text">
+  <small>
     {% if r.es_regex %}regex{% else %}contiene{% endif %}
     · fuente: {{ r.fuente|default:"cualquiera" }} · moneda: {{ r.moneda|default:"cualquiera" }}
     · prioridad {{ r.prioridad }}{% if r.tipo %} · tipo: {{ r.tipo }}{% endif %}
   </small>
-  <a href="{% url 'regla_editar' r.pk %}" title="Editar regla"><i class="material-icons tiny">edit</i></a>
-  <form method="post" action="{% url 'regla_borrar' r.pk %}" onsubmit="return confirm('¿Borrar la regla «{{ r.patron|escapejs }}»?');">
-    {% csrf_token %}
-    <button type="submit" class="btn-flat" title="Borrar regla"><i class="material-icons tiny">delete</i></button>
-  </form>
+  <span class="regla-acc">
+    <a class="icon-btn sm" href="{% url 'regla_editar' r.pk %}" title="Editar regla" aria-label="Editar regla"><svg class="ic"><use href="#i-edit"/></svg></a>
+    <form method="post" action="{% url 'regla_borrar' r.pk %}" onsubmit="return confirm('¿Borrar la regla «{{ r.patron|escapejs }}»?');">
+      {% csrf_token %}
+      <button type="submit" class="icon-btn sm danger" title="Borrar regla" aria-label="Borrar regla"><svg class="ic"><use href="#i-trash"/></svg></button>
+    </form>
+  </span>
 </div>

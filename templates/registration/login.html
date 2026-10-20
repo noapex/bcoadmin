@@ -1,12 +1,29 @@
-{#{% extends 'movimientos/base.html' %}#}
+{% extends 'movimientos/base.html' %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Ingresar{% endblock %}
+
+{% block nav %}{% endblock %}
 
 {% block content %}
-<h2>Log In</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Log In</button>
-</form>
+<div class="auth-wrap">
+  <div class="card auth-card">
+    <div class="auth-brand">
+      <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+      <span class="brand"><span class="brand-text">Mis Cuentas</span></span>
+      <p>Ingresá para ver tus finanzas.</p>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
+      {% for field in form %}
+        <div class="abm-campo">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-block" type="submit"><svg class="ic ic-sm"><use href="#i-lock"/></svg>Ingresar</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

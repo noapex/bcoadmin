@@ -1,0 +1,10 @@
+{# Empty state when there is no data. `con_moneda`: mention the currency and offer the other one. #}
+<div class="card empty">
+  <div class="empty-icon"><svg class="ic"><use href="#i-inbox"/></svg></div>
+  <h2>Todavía no hay movimientos{% if con_moneda %} en {{ moneda }}{% endif %}.</h2>
+  <p>Importá tus resúmenes para empezar a ver tus números.</p>
+  <div class="actions">
+    <a class="btn" href="{% url 'upload' %}"><svg class="ic ic-sm"><use href="#i-upload"/></svg>Importá tus archivos</a>
+    {% if con_moneda %}<a class="btn btn-ghost" href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a>{% endif %}
+  </div>
+</div>

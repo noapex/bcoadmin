@@ -3,31 +3,35 @@
 
 {% block content %}
 <div class="page-head">
-  <h5>Gastos por categoría</h5>
-  <a class="btn teal" href="{% url 'categorias_gestionar' %}">Gestionar categorías</a>
+  <div>
+    <h1>Gastos por categoría</h1>
+    <p class="sub">Clic en un importe para ver sus movimientos.</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="{% url 'categorias_gestionar' %}"><svg class="ic ic-sm"><use href="#i-settings"/></svg>Gestionar categorías</a>
+  </div>
 </div>
 {% if vacio %}
-  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos en {{ moneda }}.
-    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
-  <p class="center-align"><a href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a></p>
+  {% include 'movimientos/_vacio.html' with con_moneda=True %}
 {% else %}
 {% include 'movimientos/_periodo.html' with con_moneda=True %}
+<div class="card table-card">
 <div class="tabla-scroll">
-<table class="highlight matriz" id="tabla-categorias">
+<table class="t matriz" id="tabla-categorias">
   <thead>
-    <tr><th>Categoría</th>{% for m in tabla.meses %}<th class="right-align">{{ m }}</th>{% endfor %}<th class="right-align">Total</th></tr>
+    <tr><th>Categoría</th>{% for m in tabla.meses %}<th class="r">{{ m }}</th>{% endfor %}<th class="r total">Total</th></tr>
   </thead>
   <tbody>
   {% for fila in tabla.filas %}
     <tr class="{% if fila.nivel == 0 %}raiz{% else %}hijo{% endif %}"{% if fila.nivel > 0 %} data-raiz="{{ fila.raiz_id }}" style="display:none"{% endif %}>
-      <td style="padding-left:{% widthratio fila.nivel 1 24 %}px">
-        {% if fila.tiene_hijos and fila.nivel == 0 %}<a href="#" class="toggle" data-raiz="{{ fila.id }}" title="Mostrar/ocultar subcategorías"><i class="material-icons tiny">chevron_right</i></a>{% endif %}
+      <td style="padding-left:calc(14px + {% widthratio fila.nivel 1 36 %}px)">
+        {% if fila.tiene_hijos and fila.nivel == 0 %}<a href="#" class="toggle" data-raiz="{{ fila.id }}" title="Mostrar/ocultar subcategorías" aria-expanded="false"><svg class="ic"><use href="#i-chevron"/></svg></a>{% elif fila.nivel == 0 %}<span class="toggle-spacer"></span>{% endif %}
         {{ fila.nombre }}
       </td>
       {% for mes, v in fila.celdas %}
-        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto&categoria={% if fila.id %}{{ fila.id }}{% else %}none{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto&categoria={% if fila.id %}{{ fila.id }}{% else %}none{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
       {% endfor %}
-      <td class="right-align"><b>{{ fila.total|floatformat:"2g" }}</b></td>
+      <td class="r total"><b>{{ fila.total|floatformat:"2g" }}</b></td>
     </tr>
   {% endfor %}
   </tbody>
@@ -35,12 +39,13 @@
     <tr class="raiz">
       <td>Total</td>
       {% for mes, v in tabla.total.celdas %}
-        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
       {% endfor %}
-      <td class="right-align">{{ tabla.total.total|floatformat:"2g" }}</td>
+      <td class="r total">{{ tabla.total.total|floatformat:"2g" }}</td>
     </tr>
   </tfoot>
 </table>
+</div>
 </div>
 <script>
   $(function () {
@@ -49,7 +54,7 @@
       var rows = $('#tabla-categorias tr.hijo[data-raiz="' + $(this).data("raiz") + '"]');
       var open = rows.first().is(":visible");
       rows.toggle(!open);
-      $(this).find("i").text(open ? "chevron_right" : "expand_more");
+      $(this).toggleClass("open", !open).attr("aria-expanded", String(!open));
     });
   });
 </script>

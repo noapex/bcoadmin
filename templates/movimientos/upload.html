@@ -4,55 +4,83 @@
 {% block title %}Importar archivos{% endblock %}
 
 {% block content %}
-    <br/>
+<div class="page-head">
+  <div>
+    <h1>Importar archivos</h1>
+    <p class="sub">Resúmenes de Santander: cuenta y tarjetas.</p>
+  </div>
+</div>
+
+<div class="upload-grid">
     {% if error %}
-        <p class="red-text">{{ error }}</p>
+    <div class="toast error" role="alert"><svg class="ic"><use href="#i-alert"/></svg><span class="toast-text">{{ error }}</span></div>
     {% endif %}
 
     {% if reports %}
-    <table class="highlight">
+    <section class="card table-card">
+    <h2 class="card-title" style="padding:16px 18px 0">Resultado de la importación</h2>
+    <div class="tabla-scroll">
+    <table class="t">
         <thead>
         <tr>
             <th>Archivo</th>
             <th>Formato</th>
-            <th>Nuevos</th>
-            <th>Duplicados</th>
-            <th>Omitidas</th>
+            <th class="r">Nuevos</th>
+            <th class="r">Duplicados</th>
+            <th class="r">Omitidas</th>
             <th>Errores</th>
         </tr>
         </thead>
         <tbody>
         {% for r in reports %}
             <tr>
-                <td>{{ r.archivo }}</td>
+                <td><span style="display:inline-flex;align-items:center;gap:8px"><svg class="ic ic-sm muted"><use href="#i-file"/></svg>{{ r.archivo }}</span></td>
                 <td>{{ r.formato|default:"-" }}</td>
-                <td>{{ r.nuevos }}</td>
-                <td>{{ r.duplicados }}</td>
-                <td>{{ r.omitidas }}</td>
-                <td>{% for e in r.errores %}<span class="red-text">{{ e }}</span>{% if not forloop.last %}<br/>{% endif %}{% endfor %}</td>
+                <td class="r">{% if r.nuevos %}<span class="badge b-pos">{{ r.nuevos }}</span>{% else %}{{ r.nuevos }}{% endif %}</td>
+                <td class="r">{{ r.duplicados }}</td>
+                <td class="r">{{ r.omitidas }}</td>
+                <td>{% for e in r.errores %}<span class="neg">{{ e }}</span>{% if not forloop.last %}<br/>{% endif %}{% empty %}<span class="badge st-pagado">OK</span>{% endfor %}</td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
-    <hr>
+    </div>
+    </section>
     {% endif %}
 
     {% if form %}
-    <p>Se pueden subir resúmenes de Santander (cuenta, tarjetas) en .xls, .xlsx o .pdf, de a varios a la vez.</p>
-    <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+    <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data" class="card">
         {% csrf_token %}
-        <div class="file-field input-field">
-            <div class="btn">
-                <span>Archivos</span>
-                <input type="file" name="file_field" accept=".xls,.xlsx,.pdf" multiple>
-            </div>
-            <div class="file-path-wrapper">
-                <input class="file-path validate" type="text" placeholder="Elegí uno o más archivos">
-            </div>
+        <label class="dropzone" id="dropzone">
+            <span class="empty-icon"><svg class="ic"><use href="#i-cloud-up"/></svg></span>
+            <strong>Arrastrá tus archivos acá</strong>
+            <span class="hint">o hacé clic para elegirlos · .xls, .xlsx o .pdf, de a varios a la vez</span>
+            <input type="file" name="file_field" accept=".xls,.xlsx,.pdf" multiple aria-label="Elegí uno o más archivos">
+        </label>
+        <ul class="file-list" id="file-list" aria-live="polite"></ul>
+        <div class="form-actions">
+            <button class="btn" type="submit"><svg class="ic ic-sm"><use href="#i-upload"/></svg>Subir</button>
         </div>
-        <button class="btn waves-effect waves-light" type="submit">Subir</button>
     </form>
+    <script>
+    (function () {
+      var zone = document.getElementById("dropzone");
+      var input = zone.querySelector("input[type=file]");
+      var list = document.getElementById("file-list");
+      input.addEventListener("change", function () {
+        list.innerHTML = "";
+        Array.prototype.forEach.call(input.files, function (f) {
+          var li = document.createElement("li");
+          li.textContent = f.name;
+          list.appendChild(li);
+        });
+      });
+      ["dragenter", "dragover"].forEach(function (t) { zone.addEventListener(t, function () { zone.classList.add("drag"); }); });
+      ["dragleave", "drop"].forEach(function (t) { zone.addEventListener(t, function () { zone.classList.remove("drag"); }); });
+    })();
+    </script>
     {% else %}
-    <a href="{% url 'upload' %}">Importar más archivos</a>
+    <div><a class="btn btn-ghost" href="{% url 'upload' %}"><svg class="ic ic-sm"><use href="#i-upload"/></svg>Importar más archivos</a></div>
     {% endif %}
+</div>
 {% endblock %}

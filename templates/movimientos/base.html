@@ -1,93 +1,67 @@
-{#{% extends 'movimientos/auth.html' %}#}
-{% load static %}
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1020">
+  <title>{% block title %}{% endblock %} · Mis Cuentas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="{% static 'css/app.css' %}" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  {% block extra_head_content %}{% endblock %}
+</head>
+<body>
+{% include 'movimientos/_icons.html' %}
+{% with u=request.resolver_match.url_name %}
+{% block nav %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="/" class="brand" aria-label="Mis Cuentas - inicio">
+      <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+      <span class="brand-text">Mis Cuentas</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="{% url 'dashboard' %}" class="{% if u == 'dashboard' %}on{% endif %}"><svg class="ic"><use href="#i-dashboard"/></svg>Tablero</a>
+      <a href="{% url 'categorias' %}" class="{% if u == 'categorias' or u|slice:':9' == 'categoria' or u|slice:':5' == 'regla' %}on{% endif %}"><svg class="ic"><use href="#i-pie"/></svg>Categorías</a>
+      <a href="{% url 'tarjetas' %}" class="{% if u == 'tarjetas' %}on{% endif %}"><svg class="ic"><use href="#i-card"/></svg>Tarjetas</a>
+      <a href="{% url 'movimientos' %}" class="{% if u == 'movimientos' %}on{% endif %}"><svg class="ic"><use href="#i-list"/></svg>Movimientos</a>
+      <a href="{% url 'upload' %}" class="{% if u == 'upload' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg>Importar</a>
+      <a href="{% url 'sync' %}" class="{% if u == 'sync' %}on{% endif %}"><svg class="ic"><use href="#i-sync"/></svg>Sync</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <a href="/admin/"><svg class="ic"><use href="#i-shield"/></svg>Admin</a>
+    </nav>
+  </div>
+</header>
+{% endblock %}
+{% endwith %}
 
+<main class="main">
+  {% if messages %}
+  <ul class="mensajes">
+    {% for message in messages %}
+    <li class="toast {{ message.tags }}" role="status">
+      <svg class="ic"><use href="#i-{% if message.tags == 'error' or message.tags == 'warning' %}alert{% else %}check{% endif %}"/></svg>
+      <span class="toast-text">{{ message }}</span>
+      <button type="button" class="icon-btn sm" aria-label="Cerrar" onclick="this.parentNode.remove()"><svg class="ic"><use href="#i-x"/></svg></button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 
-<!DOCTYPE html>
-<html>
-<!-- file: upload.html -->
-    <head lang="en">
-        <meta charset="UTF-8">
-        <meta name="color-scheme" content="light">
-        <title>{% block title %}{% endblock %}</title>
-{#        <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>#}
-
-
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-        <!-- Compiled and minified CSS -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
-
-        <!-- Compiled and minified JavaScript -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
-
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-        <link href="{% static "css/bcoadmin.css" %}" rel="stylesheet" />
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
-{#        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">#}
-    {% block extra_head_content %}{% endblock %}
-    </head>
-
-    <body>
-{#        {{ request.session.month }}#}
-
-
-    <div class="wrapper">
-
-
-
-    <nav class="teal lighten-2">
-    <div class="nav-wrapper">
-      <a href="/" class="brand-logo">Mis Cuentas</a>
-      <ul class="right">
-        <li><a href="{% url 'dashboard' %}">Tablero</a></li>
-        <li><a href="{% url 'categorias' %}">Categorías</a></li>
-        <li><a href="{% url 'tarjetas' %}">Tarjetas</a></li>
-        <li><a href="{% url 'movimientos' %}">Movimientos</a></li>
-        <li><a href="{% url 'upload' %}">Importar</a></li>
-        <li><a href="{% url 'sync' %}">Sync</a></li>
-        <li><a href="/admin/">Admin</a></li>
-      </ul>
-    </div>
-  </nav>
-    <div class="content">
-	            <div class="container">
-            {% if messages %}
-            <ul class="mensajes">
-              {% for message in messages %}
-                <li class="card-panel {% if message.tags == 'error' %}red lighten-4{% else %}green lighten-4{% endif %}">{{ message }}</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
-
-			{% block content %}
-			{% endblock %}
-
-	            </div>
-	        </div>
-    </div>
-
-
-
-
-    <script>
-    $(document).ready(function(){
-        $(".dropdown-button").dropdown({
-            inDuration: 300,
-            outDuration: 225,
-            constrainWidth: false, // Does not change width of dropdown to that of the activator
-            hover: true, // Activate on hover
-            gutter: 0, // Spacing from edge
-            belowOrigin: true, // Displays dropdown below the button
-            alignment: 'left', // Displays dropdown with edge aligned to the left of button
-            stopPropagation: false // Stops event propagation
-        });
-    });
-
-
-  // Initialize collapsible (uncomment the line below if you use the dropdown variation)
-  //$('.collapsible').collapsible();
-
-    </script>
-    </body>
+  {% block content %}{% endblock %}
+</main>
+<script>
+  // On narrow screens the nav scrolls horizontally: keep the current section visible.
+  (function () {
+    var on = document.querySelector(".nav a.on");
+    if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) {
+      on.parentNode.scrollLeft = on.offsetLeft - (on.parentNode.clientWidth - on.offsetWidth) / 2;
+    }
+  })();
+</script>
+</body>
 </html>

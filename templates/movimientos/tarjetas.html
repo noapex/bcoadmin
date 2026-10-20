@@ -2,43 +2,49 @@
 {% block title %}Tarjetas{% endblock %}
 
 {% block content %}
-<div class="page-head"><h5>Gastos con tarjeta</h5></div>
+<div class="page-head">
+  <div>
+    <h1>Gastos con tarjeta</h1>
+    <p class="sub">Consumos por tarjeta y mes, en pesos y en dólares.</p>
+  </div>
+</div>
 {% if vacio %}
-  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos.
-    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
+  {% include 'movimientos/_vacio.html' with con_moneda=False %}
 {% else %}
 {% include 'movimientos/_periodo.html' with con_moneda=False %}
 {% for s in secciones %}
-<h6 class="seccion">{{ s.titulo }}</h6>
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-card"/></svg>{{ s.titulo }}</h2>
 {% if s.tabla.filas %}
+<div class="card table-card">
 <div class="tabla-scroll">
-<table class="highlight matriz">
+<table class="t matriz">
   <thead>
-    <tr><th>Tarjeta</th>{% for m in s.tabla.meses %}<th class="right-align">{{ m }}</th>{% endfor %}<th class="right-align">Total</th></tr>
+    <tr><th>Tarjeta</th>{% for m in s.tabla.meses %}<th class="r">{{ m }}</th>{% endfor %}<th class="r total">Total</th></tr>
   </thead>
   <tbody>
   {% for fila in s.tabla.filas %}
     <tr{% if fila.sin_detalle %} class="sin-detalle"{% endif %}>
       <td>{{ fila.nombre }}{% if fila.sin_detalle %} *{% endif %}</td>
       {% for mes, v in fila.celdas %}
-        <td class="right-align">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ s.moneda }}&mes={{ mes }}&tipo=gasto&fuente={% if fila.sin_detalle %}cuenta&categoria={{ fila.categoria_id }}&tarjeta={{ fila.fuente|default:'otras' }}{% else %}{{ fila.fuente }}{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="grey-text">–</span>{% endif %}</td>
+        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ s.moneda }}&mes={{ mes }}&tipo=gasto&fuente={% if fila.sin_detalle %}cuenta&categoria={{ fila.categoria_id }}&tarjeta={{ fila.fuente|default:'otras' }}{% else %}{{ fila.fuente }}{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
       {% endfor %}
-      <td class="right-align"><b>{{ fila.total|floatformat:"2g" }}</b></td>
+      <td class="r total"><b>{{ fila.total|floatformat:"2g" }}</b></td>
     </tr>
   {% endfor %}
   </tbody>
   <tfoot>
     <tr class="raiz">
       <td>Total</td>
-      {% for mes, v in s.tabla.total.celdas %}<td class="right-align">{{ v|floatformat:"2g" }}</td>{% endfor %}
-      <td class="right-align">{{ s.tabla.total.total|floatformat:"2g" }}</td>
+      {% for mes, v in s.tabla.total.celdas %}<td class="r">{{ v|floatformat:"2g" }}</td>{% endfor %}
+      <td class="r total">{{ s.tabla.total.total|floatformat:"2g" }}</td>
     </tr>
   </tfoot>
 </table>
 </div>
+</div>
 {% if s.hay_sin_detalle %}<p class="nota">* Mes sin resumen importado: se usa el pago desde la cuenta como aproximación.</p>{% endif %}
 {% else %}
-<p class="grey-text">No hay gastos con tarjeta en {{ s.titulo|lower }} en este período.</p>
+<div class="card"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>No hay gastos con tarjeta en {{ s.titulo|lower }} en este período.</p></div>
 {% endif %}
 {% endfor %}
 {% endif %}

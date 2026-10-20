@@ -2,61 +2,86 @@
 {% load humanize %}
 {% block title %}Tablero{% endblock %}
 
-{% block extra_head_content %}
-{{ block.super }}
-<style>
-  .kpis { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
-  .kpi { flex: 1; min-width: 150px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
-  .kpi b { display: block; font-size: 1.5rem; }
-  .pos { color: #2e9d5b; } .neg { color: #d0453d; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
-  .box { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
-  .box h5 { margin: 0 0 8px; font-size: 1.1rem; }
-  .rec { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #ddd; }
-  .rec a { color: inherit; }
-</style>
-{% endblock %}
-
 {% block content %}
 {% if vacio %}
-  <p class="center-align" style="margin-top:40px">Todavía no hay movimientos en {{ moneda }}.
-    <a href="{% url 'upload' %}">Importá tus archivos</a>.</p>
-  <p class="center-align"><a href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a></p>
+  {% include 'movimientos/_vacio.html' with con_moneda=True %}
 {% else %}
+<div class="page-head">
+  <div>
+    <h1>Tablero</h1>
+    <p class="sub">Resumen de {{ mes }} · {% if moneda == 'ARS' %}Pesos{% else %}Dólares{% endif %}</p>
+  </div>
+</div>
+
 <div class="toolbar">
-  <a class="pill {% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Pesos</a>
-  <a class="pill {% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Dólares</a>
-  <form method="get" style="display:inline-flex;align-items:center;gap:4px">
+  <div class="seg" role="group" aria-label="Moneda">
+    <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Pesos</a>
+    <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Dólares</a>
+  </div>
+  <form method="get" class="periodo">
     <input type="hidden" name="moneda" value="{{ moneda }}">
-    Desde <input type="month" name="desde" value="{{ desde }}">
-    hasta <input type="month" name="hasta" value="{{ hasta }}">
-    mes <input type="month" name="mes" value="{{ mes }}">
-    <button class="btn-small teal" type="submit">Ver</button>
+    <label class="field"><span>Desde</span><input type="month" name="desde" value="{{ desde }}"></label>
+    <label class="field"><span>Hasta</span><input type="month" name="hasta" value="{{ hasta }}"></label>
+    <label class="field"><span>Mes</span><input type="month" name="mes" value="{{ mes }}"></label>
+    <button class="btn btn-sm" type="submit"><svg class="ic ic-sm"><use href="#i-calendar"/></svg>Ver</button>
   </form>
 </div>
 
 <div class="kpis">
-  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">Ingresos {{ mes }}<b class="pos">$ {{ kpis.ingresos|floatformat:"2g" }}</b></a>
-  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">Gastos {{ mes }}<b class="neg">$ {{ kpis.gastos|floatformat:"2g" }}</b></a>
-  <div class="kpi">Balance<b class="{% if kpis.balance >= 0 %}pos{% else %}neg{% endif %}">$ {{ kpis.balance|floatformat:"2g" }}</b></div>
-  <div class="kpi">Recurrentes<b class="{% if kpis.faltan %}neg{% else %}pos{% endif %}">{% if kpis.faltan %}{{ kpis.faltan }} faltan{% else %}al día{% endif %}</b></div>
+  <a class="card kpi k-pos" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">
+    <span class="kpi-head"><span class="kpi-label">Ingresos · {{ mes }}</span><span class="kpi-icon pos"><svg class="ic"><use href="#i-up"/></svg></span></span>
+    <b class="kpi-value pos">$ {{ kpis.ingresos|floatformat:"2g" }}</b>
+    <span class="kpi-foot">Ver movimientos</span>
+  </a>
+  <a class="card kpi k-neg" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">
+    <span class="kpi-head"><span class="kpi-label">Gastos · {{ mes }}</span><span class="kpi-icon neg"><svg class="ic"><use href="#i-down"/></svg></span></span>
+    <b class="kpi-value neg">$ {{ kpis.gastos|floatformat:"2g" }}</b>
+    <span class="kpi-foot">Ver movimientos</span>
+  </a>
+  <div class="card kpi {% if kpis.balance >= 0 %}k-pos{% else %}k-neg{% endif %}">
+    <span class="kpi-head"><span class="kpi-label">Balance</span><span class="kpi-icon"><svg class="ic"><use href="#i-wallet"/></svg></span></span>
+    <b class="kpi-value {% if kpis.balance >= 0 %}pos{% else %}neg{% endif %}">$ {{ kpis.balance|floatformat:"2g" }}</b>
+    <span class="kpi-foot">Ingresos menos gastos</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-head"><span class="kpi-label">Recurrentes</span><span class="kpi-icon"><svg class="ic"><use href="#i-repeat"/></svg></span></span>
+    <span class="kpi-value">{% if kpis.faltan %}<span class="badge st-falta">{{ kpis.faltan }} faltan</span>{% else %}<span class="badge st-pagado">al día</span>{% endif %}</span>
+    <span class="kpi-foot">{{ recurrentes|length }} pagos detectados</span>
+  </div>
 </div>
 
-<div class="grid2">
-  <div class="box"><h5>Balance mensual</h5><div class="chart-box"><canvas id="chart-balance"></canvas></div></div>
-  <div class="box"><h5>¿En qué gasto? ({{ mes }})</h5><div class="chart-box"><canvas id="chart-cat"></canvas></div></div>
-  <div class="box"><h5>Evolución por categoría</h5><div class="chart-box"><canvas id="chart-evol"></canvas></div></div>
-  <div class="box"><h5>Recurrentes</h5>
+<div class="grid">
+  <section class="card">
+    <h2 class="card-title">Balance mensual <small>Clic en un mes para ver el detalle</small></h2>
+    <div class="chart-box"><canvas id="chart-balance" aria-label="Balance mensual" role="img"></canvas></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">¿En qué gasto? <small>{{ mes }}</small></h2>
+    <div class="chart-box tall"><canvas id="chart-cat" aria-label="Gastos por categoría" role="img"></canvas></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">Evolución por categoría</h2>
+    <div class="chart-box"><canvas id="chart-evol" aria-label="Evolución por categoría" role="img"></canvas></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">Recurrentes <small>{{ recurrentes|length }}</small></h2>
+    <div class="rec-list">
     {% for r in recurrentes %}
       <div class="rec">
-        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}" title="{{ r.etiqueta }}">{{ r.icono }} {{ r.rec.nombre }}{% if r.rec.ultima_fecha %} <small class="grey-text">({{ r.rec.ultima_fecha|date:"d/m/Y" }})</small>{% endif %}{% if r.estado == 'inactivo' %} <small class="grey-text">· {{ r.etiqueta|lower }}</small>{% endif %}</a>
-        <span>{% if r.rec.monto_ref %}$ {{ r.rec.monto_ref|floatformat:"2g" }}{% endif %}</span>
+        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}" title="{{ r.etiqueta }}">
+          <span class="rec-name">{{ r.rec.nombre }}</span>
+          <span class="rec-meta">{% if r.rec.ultima_fecha %}Último: {{ r.rec.ultima_fecha|date:"d/m/Y" }}{% endif %}{% if r.estado == 'inactivo' %} · {{ r.etiqueta|lower }}{% endif %}</span>
+        </a>
+        <span class="rec-side">
+          <span class="badge st-{{ r.estado }}"><span aria-hidden="true">{{ r.icono }}</span> {{ r.etiqueta }}</span>
+          {% if r.rec.monto_ref %}<span class="rec-amount">$ {{ r.rec.monto_ref|floatformat:"2g" }}</span>{% endif %}
+        </span>
       </div>
     {% empty %}
-      <p class="grey-text">No hay pagos recurrentes detectados.</p>
+      <p class="empty-inline"><svg class="ic"><use href="#i-repeat"/></svg>No hay pagos recurrentes detectados.</p>
     {% endfor %}
-  </div>
+    </div>
+  </section>
 </div>
 
 {{ data|json_script:"dash-data" }}
@@ -64,35 +89,125 @@
 (function () {
   var d = JSON.parse(document.getElementById("dash-data").textContent);
   var base = "{% url 'movimientos' %}?moneda=" + d.moneda;
-  var PALETTE = ["#4a7bd9", "#e8a33d", "#9b59b6", "#2e9d5b", "#d0453d", "#17a2b8", "#999999"];
+  var PALETTE = ["#6366f1", "#34d399", "#fb7185", "#fbbf24", "#38bdf8", "#a78bfa", "#94a3b8"];
+  var MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  var money = new Intl.NumberFormat("es-AR", {style: "currency", currency: d.moneda, minimumFractionDigits: 2});
+  var compact = new Intl.NumberFormat("es-AR", {notation: "compact", maximumFractionDigits: 1});
+
+  function mesCorto(m) { return MESES[parseInt(m.slice(5), 10) - 1] + " " + m.slice(2, 4); }
+  function tooltipMoney(ctx) {
+    var v = ctx.parsed && typeof ctx.parsed === "object" ? ctx.parsed.y : ctx.parsed;
+    return " " + ctx.dataset.label + ": " + money.format(v);
+  }
+
+  // Global dark-theme defaults.
+  Chart.defaults.color = "#94a3b8";
+  Chart.defaults.borderColor = "rgba(255,255,255,0.06)";
+  Chart.defaults.font.family = "Inter, system-ui, sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.pointStyle = "circle";
+  Chart.defaults.plugins.legend.labels.boxWidth = 8;
+  Chart.defaults.plugins.legend.labels.boxHeight = 8;
+  Chart.defaults.plugins.legend.labels.padding = 14;
+  Chart.defaults.plugins.tooltip.backgroundColor = "rgba(15,23,42,0.95)";
+  Chart.defaults.plugins.tooltip.borderColor = "rgba(255,255,255,0.12)";
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.titleColor = "#fff";
+  Chart.defaults.plugins.tooltip.bodyColor = "#e5e7eb";
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  Chart.defaults.plugins.tooltip.usePointStyle = true;
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 5;
+  Chart.defaults.elements.point.hitRadius = 10;
+  Chart.defaults.elements.line.borderWidth = 2.5;
+
+  var moneyAxis = {
+    grid: {color: "rgba(255,255,255,0.06)"},
+    border: {display: false},
+    ticks: {callback: function (v) { return compact.format(v); }}
+  };
+  var timeAxis = {grid: {display: false}, border: {display: false}};
+
+  function areaGradient(color) {
+    return function (ctx) {
+      var area = ctx.chart.chartArea;
+      if (!area) { return color + "00"; }
+      var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+      g.addColorStop(0, color + "55");
+      g.addColorStop(1, color + "00");
+      return g;
+    };
+  }
 
   new Chart(document.getElementById("chart-balance"), {
     type: "bar",
     data: {
-      labels: d.meses,
+      labels: d.meses.map(mesCorto),
       datasets: [
-        {type: "bar", label: "Ingresos", data: d.ingresos, backgroundColor: "#2e9d5b"},
-        {type: "bar", label: "Gastos", data: d.gastos, backgroundColor: "#d0453d"},
-        {type: "line", label: "Balance", data: d.balance, borderColor: "#4a7bd9", backgroundColor: "#4a7bd9", tension: 0.2}
+        {type: "line", label: "Balance", data: d.balance, borderColor: "#60a5fa",
+         backgroundColor: areaGradient("#60a5fa"), fill: "origin", cubicInterpolationMode: "monotone", order: 0,
+         pointBackgroundColor: "#60a5fa"},
+        {type: "bar", label: "Ingresos", data: d.ingresos, backgroundColor: "#34d399",
+         borderRadius: 6, borderSkipped: false, maxBarThickness: 18, order: 1},
+        {type: "bar", label: "Gastos", data: d.gastos, backgroundColor: "#fb7185",
+         borderRadius: 6, borderSkipped: false, maxBarThickness: 18, order: 1}
       ]
     },
     options: {
       maintainAspectRatio: false,
+      interaction: {mode: "index", intersect: false},
+      scales: {x: timeAxis, y: moneyAxis},
+      plugins: {legend: {position: "bottom"}, tooltip: {callbacks: {label: tooltipMoney}}},
+      onHover: function (e, els) { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
       onClick: function (e, els) {
         if (els.length) { window.location = base + "&mes=" + d.meses[els[0].index]; }
       }
     }
   });
 
+  var totalGastos = d.categorias.reduce(function (s, c) { return s + c.total; }, 0);
+  var centerLabel = {
+    id: "centerLabel",
+    afterDraw: function (chart) {
+      var a = chart.chartArea, c = chart.ctx;
+      var x = (a.left + a.right) / 2, y = (a.top + a.bottom) / 2;
+      c.save();
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.fillStyle = "#94a3b8";
+      c.font = "600 11px Inter, system-ui, sans-serif";
+      c.fillText("TOTAL GASTOS", x, y - 13);
+      c.fillStyle = "#ffffff";
+      c.font = "700 17px Inter, system-ui, sans-serif";
+      c.fillText("$ " + compact.format(totalGastos), x, y + 9);
+      c.restore();
+    }
+  };
+
   new Chart(document.getElementById("chart-cat"), {
     type: "doughnut",
     data: {
       labels: d.categorias.map(function (c) { return c.nombre; }),
       datasets: [{data: d.categorias.map(function (c) { return c.total; }),
-                  backgroundColor: d.categorias.map(function (c, i) { return PALETTE[i % PALETTE.length]; })}]
+                  backgroundColor: d.categorias.map(function (c, i) { return PALETTE[i % PALETTE.length]; }),
+                  borderColor: "#0f1628", borderWidth: 3, hoverOffset: 8, borderRadius: 4}]
     },
+    plugins: [centerLabel],
     options: {
       maintainAspectRatio: false,
+      cutout: "70%",
+      layout: {padding: 6},
+      plugins: {
+        legend: {position: "bottom"},
+        tooltip: {callbacks: {label: function (ctx) {
+          var pct = totalGastos ? Math.round(ctx.parsed * 100 / totalGastos) : 0;
+          return " " + ctx.label + ": " + money.format(ctx.parsed) + " (" + pct + "%)";
+        }}}
+      },
+      onHover: function (e, els) { e.native.target.style.cursor = els.length ? "pointer" : "default"; },
       onClick: function (e, els) {
         if (!els.length) { return; }
         var c = d.categorias[els[0].index];
@@ -104,13 +219,19 @@
   new Chart(document.getElementById("chart-evol"), {
     type: "line",
     data: {
-      labels: d.evolucion.meses,
+      labels: d.evolucion.meses.map(mesCorto),
       datasets: d.evolucion.series.map(function (s, i) {
-        return {label: s.nombre, data: s.valores, borderColor: PALETTE[i % PALETTE.length],
-                backgroundColor: PALETTE[i % PALETTE.length], tension: 0.2};
+        var col = PALETTE[i % PALETTE.length];
+        return {label: s.nombre, data: s.valores, borderColor: col, backgroundColor: col,
+                pointBackgroundColor: col, cubicInterpolationMode: "monotone"};
       })
     },
-    options: {maintainAspectRatio: false, plugins: {legend: {position: "bottom"}}}
+    options: {
+      maintainAspectRatio: false,
+      interaction: {mode: "index", intersect: false},
+      scales: {x: timeAxis, y: moneyAxis},
+      plugins: {legend: {position: "bottom"}, tooltip: {callbacks: {label: tooltipMoney}}}
+    }
   });
 })();
 </script>
