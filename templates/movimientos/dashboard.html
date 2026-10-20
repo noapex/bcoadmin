@@ -13,7 +13,6 @@
   @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
   .box { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
   .box h5 { margin: 0 0 8px; font-size: 1.1rem; }
-  .box canvas { max-height: 280px; }
   .rec { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #ddd; }
   .rec a { color: inherit; }
   .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
@@ -49,9 +48,9 @@
 </div>
 
 <div class="grid2">
-  <div class="box"><h5>Balance mensual</h5><canvas id="chart-balance"></canvas></div>
-  <div class="box"><h5>¿En qué gasto? ({{ mes }})</h5><canvas id="chart-cat"></canvas></div>
-  <div class="box"><h5>Evolución por categoría</h5><canvas id="chart-evol"></canvas></div>
+  <div class="box"><h5>Balance mensual</h5><div class="chart-box"><canvas id="chart-balance"></canvas></div></div>
+  <div class="box"><h5>¿En qué gasto? ({{ mes }})</h5><div class="chart-box"><canvas id="chart-cat"></canvas></div></div>
+  <div class="box"><h5>Evolución por categoría</h5><div class="chart-box"><canvas id="chart-evol"></canvas></div></div>
   <div class="box"><h5>Recurrentes</h5>
     {% for r in recurrentes %}
       <div class="rec">
@@ -82,6 +81,7 @@
       ]
     },
     options: {
+      maintainAspectRatio: false,
       onClick: function (e, els) {
         if (els.length) { window.location = base + "&mes=" + d.meses[els[0].index]; }
       }
@@ -96,6 +96,7 @@
                   backgroundColor: d.categorias.map(function (c, i) { return PALETTE[i % PALETTE.length]; })}]
     },
     options: {
+      maintainAspectRatio: false,
       onClick: function (e, els) {
         if (!els.length) { return; }
         var c = d.categorias[els[0].index];
@@ -112,7 +113,8 @@
         return {label: s.nombre, data: s.valores, borderColor: PALETTE[i % PALETTE.length],
                 backgroundColor: PALETTE[i % PALETTE.length], tension: 0.2};
       })
-    }
+    },
+    options: {maintainAspectRatio: false, plugins: {legend: {position: "bottom"}}}
   });
 })();
 </script>

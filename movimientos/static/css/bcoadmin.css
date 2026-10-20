@@ -70,3 +70,12 @@
 
 .pos { color: #2e9d5b; }
 .neg { color: #d0453d; }
+
+html, body {
+    background: #fff;
+}
+
+.chart-box {
+    position: relative;
+    height: 300px;
+}
