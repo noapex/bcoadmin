@@ -22,9 +22,18 @@ http://localhost
 
 ```
 ./manage.py migrate
-./manage.py seed_reglas
 ./manage.py importar <archivos>
 ```
+
+Las categorías y sus reglas de clasificación se administran desde la app, en
+"Categorías → Gestionar categorías" (`/categorias/gestionar/`): la base de datos es la
+fuente de verdad y cada cambio reclasifica los movimientos (salvo los asignados a mano).
+
+`./manage.py seed_reglas` es opcional: importa una única vez la configuración vieja
+(`CATEGORIAS_GASTOS`, `TARJETAS`, `IGNORAR`, `INTERNOS` de los settings). Después de eso
+los settings ya no se usan para clasificar.
+Las tarjetas (`Tarjeta`, con el patrón que reconoce su pago desde la cuenta) se crean
+con ese mismo comando o desde el admin.
 
 `importar` acepta los PDF mensuales de la cuenta, `movimientos.xlsx` y los
 "Último resumen" de las tarjetas; se pueden repetir sin duplicar movimientos.
