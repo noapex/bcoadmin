@@ -99,7 +99,7 @@
       onClick: function (e, els) {
         if (!els.length) { return; }
         var c = d.categorias[els[0].index];
-        window.location = base + "&mes=" + d.mes + "&categoria=" + (c.id === null ? "none" : c.id);
+        window.location = base + "&mes=" + d.mes + "&tipo=gasto&categoria=" + (c.id === null ? "none" : c.id);
       }
     }
   });

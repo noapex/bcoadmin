@@ -244,6 +244,14 @@ class DashboardTests(TestCase):
         self.assertContains(r, "💤")
         self.assertContains(r, "· inactivo")
 
+    def test_category_slice_link_filters_gastos(self):
+        mov(2026, 9, 13, "25", categoria=self.cat, desc="REINTEGRO")
+        r = self.client.get("/")
+        self.assertContains(r, '"&tipo=gasto&categoria="')
+        lista = self.client.get(f"/movimientos/?mes=2026-09&tipo=gasto&categoria={self.cat.pk}")
+        slice_total = next(c["total"] for c in r.context["data"]["categorias"] if c["id"] == self.cat.pk)
+        self.assertEqual(abs(lista.context["total"]), Decimal(str(slice_total)))
+
     def test_dashboard_usd_only_usd(self):
         r = self.client.get("/?moneda=USD")
         k = r.context["kpis"]
@@ -292,6 +300,14 @@ class MovimientosListTests(TestCase):
             nombre="Edesur", patron="EDESUR", manual=True, moneda="ARS", fuente="cuenta")
         r = self.client.get(f"/movimientos/?recurrente={rec.pk}")
         self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["EDESUR"])
+
+    def test_header_shows_names_not_ids(self):
+        rec = Recurrente.objects.create(
+            nombre="Luz Edesur", patron="EDESUR", manual=True, moneda="ARS", fuente="cuenta")
+        r = self.client.get(f"/movimientos/?mes=2026-09&categoria={self.child.pk}&recurrente={rec.pk}")
+        self.assertContains(r, "categoría: Luz")
+        self.assertContains(r, "recurrente Luz Edesur")
+        self.assertNotContains(r, f"#{self.child.pk}")
 
     def test_tipo_and_moneda(self):
         r = self.client.get("/movimientos/?mes=2026-09&moneda=USD&tipo=gasto")

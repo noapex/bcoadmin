@@ -108,6 +108,7 @@ def movimientos_list(request):
         nxt = _shift(mes, 1)
         qs = qs.filter(fecha__gte=date(y, m, 1), fecha__lt=date(int(nxt[:4]), int(nxt[5:]), 1))
     categoria = request.GET.get("categoria", "")
+    cat = rec = None
     if categoria == "none":
         qs = qs.filter(categoria__isnull=True)
     elif categoria.isdigit():
@@ -124,6 +125,7 @@ def movimientos_list(request):
     return render(request, "movimientos/movimientos_list.html", {
         "movimientos": qs, "total": total, "moneda": moneda, "mes": mes,
         "categoria": categoria, "tipo": tipo, "recurrente": recurrente,
+        "categoria_obj": cat, "recurrente_obj": rec,
     })
 
 
