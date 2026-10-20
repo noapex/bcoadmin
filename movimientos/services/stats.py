@@ -1,4 +1,5 @@
 """Per-currency aggregations for the dashboard. Internal transfers and inactive rows never count."""
+import re
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
@@ -6,10 +7,12 @@ from decimal import Decimal
 from django.db.models import Max, Sum
 from django.db.models.functions import TruncMonth
 
-from movimientos.models import Categoria, Detalle
+from movimientos.models import Categoria, Detalle, Tarjeta
+from movimientos.services.classify import CAT_SIN_DETALLE, CARD_SOURCES, patrones_tarjeta, tarjeta_de_pago
 
 CENT = Decimal("0.01")
 SIN_CATEGORIA = "Sin categoría"
+ORDEN_TARJETAS = ("visa", "amex", "master")
 
 
 def _q(value):
@@ -101,3 +104,105 @@ def ultimo_mes_con_datos(moneda):
     last = (Detalle.objects.filter(activo=True, moneda=moneda).exclude(tipo="interno")
             .aggregate(f=Max("fecha"))["f"])
     return last.strftime("%Y-%m") if last else None
+
+
+def _fila_total(filas, n):
+    valores = [sum((f["valores"][k] for f in filas), Decimal(0)).quantize(CENT) for k in range(n)]
+    return {"valores": valores, "total": sum(valores, Decimal(0)).quantize(CENT)}
+
+
+def _por_mes(meses):
+    return defaultdict(lambda: [Decimal(0)] * len(meses))
+
+
+def gastos_por_categoria(moneda, desde, hasta):
+    """Monthly spend (positive) per category over the whole Categoria tree.
+
+    Returns {"meses": [YYYY-MM...],
+             "filas": [{"id", "nombre", "nivel", "raiz_id", "tiene_hijos", "valores", "total"}...],
+             "total": {"valores", "total"}}.
+    `filas` follows tree order and ends with the "Sin categoría" row (id None). Each row's
+    `valores` (aligned with `meses`) includes the category's descendants. Only activo gastos.
+    """
+    meses = month_range(desde, hasta)
+    idx = {m: i for i, m in enumerate(meses)}
+    cats = list(Categoria.objects.order_by("tree_id", "lft")
+                .values("id", "name", "parent_id", "level", "tree_id", "lft", "rght"))
+    parent = {c["id"]: c["parent_id"] for c in cats}
+    acc = _por_mes(meses)
+    rows = (_base(moneda, desde, hasta).filter(tipo="gasto").annotate(m=TruncMonth("fecha"))
+            .values("m", "categoria_id").annotate(s=Sum("monto")))
+    for r in rows:
+        k, value = idx[r["m"].strftime("%Y-%m")], -_q(r["s"])
+        cid = r["categoria_id"]
+        if cid is None:
+            acc[None][k] += value
+        while cid is not None:  # credit the category and every ancestor
+            acc[cid][k] += value
+            cid = parent.get(cid)
+    root_by_tree = {c["tree_id"]: c["id"] for c in cats if c["level"] == 0}
+    filas = []
+    for c in cats:
+        vals = [v.quantize(CENT) for v in acc[c["id"]]]
+        filas.append({"id": c["id"], "nombre": c["name"], "nivel": c["level"],
+                      "raiz_id": root_by_tree.get(c["tree_id"]), "tiene_hijos": c["rght"] - c["lft"] > 1,
+                      "valores": vals, "total": sum(vals, Decimal(0)).quantize(CENT)})
+    sin = [v.quantize(CENT) for v in acc[None]]
+    filas.append({"id": None, "nombre": SIN_CATEGORIA, "nivel": 0, "raiz_id": None, "tiene_hijos": False,
+                  "valores": sin, "total": sum(sin, Decimal(0)).quantize(CENT)})
+    # Grand total = roots + Sin categoría (children are already inside their roots).
+    return {"meses": meses, "filas": filas,
+            "total": _fila_total([f for f in filas if f["nivel"] == 0], len(meses))}
+
+
+_ULTIMOS4 = re.compile(r"(\d{4})\s*$")
+OTRAS_TARJETAS = "Otras tarjetas"
+
+
+def gastos_por_tarjeta(moneda, desde, hasta):
+    """Monthly card spend (positive) per card source, plus account-side payments without detail.
+
+    Returns {"meses": [YYYY-MM...],
+             "filas": [{"fuente", "nombre", "sin_detalle", "categoria_id", "valores", "total"}...],
+             "total": {"valores", "total"}}.
+    Per card (visa, amex, master order): its row (gastos with that fuente: purchases + taxes - refunds)
+    followed by its "pagos sin detalle" row (account payments categorised CAT_SIN_DETALLE matched to
+    the card via tarjeta_de_pago). Unmatched sin-detalle payments go last (fuente None).
+    `categoria_id` is set on sin-detalle rows only.
+    """
+    meses = month_range(desde, hasta)
+    idx = {m: i for i, m in enumerate(meses)}
+    nombres = dict(Tarjeta.objects.values_list("fuente", "nombre"))
+    base = _base(moneda, desde, hasta).filter(tipo="gasto").annotate(m=TruncMonth("fecha"))
+
+    consumos, ultimos4 = _por_mes(meses), defaultdict(set)
+    for r in (base.filter(fuente__in=CARD_SOURCES).values("m", "fuente", "cuenta").annotate(s=Sum("monto"))):
+        consumos[r["fuente"]][idx[r["m"].strftime("%Y-%m")]] -= _q(r["s"])
+        found = _ULTIMOS4.search(r["cuenta"] or "")
+        if found:
+            ultimos4[r["fuente"]].add(found.group(1))
+
+    patrones = patrones_tarjeta()
+    sin_detalle, cat_sin = _por_mes(meses), None
+    for r in (base.filter(fuente="cuenta", categoria__name=CAT_SIN_DETALLE)
+              .values("m", "descripcion", "categoria_id").annotate(s=Sum("monto"))):
+        cat_sin = r["categoria_id"]
+        sin_detalle[tarjeta_de_pago(r["descripcion"], patrones)][idx[r["m"].strftime("%Y-%m")]] -= _q(r["s"])
+
+    def fila(fuente, nombre, vals, es_sin):
+        vals = [v.quantize(CENT) for v in vals]
+        return {"fuente": fuente, "nombre": nombre, "sin_detalle": es_sin,
+                "categoria_id": cat_sin if es_sin else None,
+                "valores": vals, "total": sum(vals, Decimal(0)).quantize(CENT)}
+
+    filas = []
+    for fuente in ORDEN_TARJETAS:
+        nombre = nombres.get(fuente) or fuente.capitalize()
+        if fuente in consumos:
+            sufijo = "/".join(sorted(ultimos4[fuente]))
+            filas.append(fila(fuente, f"{nombre} · {sufijo}" if sufijo else nombre, consumos[fuente], False))
+        if fuente in sin_detalle:
+            filas.append(fila(fuente, f"{nombre} · pagos sin detalle", sin_detalle[fuente], True))
+    if None in sin_detalle:
+        filas.append(fila(None, f"{OTRAS_TARJETAS} · pagos sin detalle", sin_detalle[None], True))
+    return {"meses": meses, "filas": filas, "total": _fila_total(filas, len(meses))}
