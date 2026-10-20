@@ -298,3 +298,16 @@ class LegacyRedirectTests(TestCase):
         for old in ("/2026/09/", "/detalle/2026/09/"):
             r = self.client.get(old)
             self.assertEqual((r.status_code, r["Location"]), (302, "/movimientos/?mes=2026-09"), old)
+
+
+class AmountFormatTests(TestCase):
+    def test_thousands_use_es_ar_format(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 5, "1234567.5")
+        self.assertContains(self.client.get("/"), "1.234.567,50")
+        self.assertContains(self.client.get("/movimientos/?mes=2026-09"), "1.234.567,50")
+
+    def test_currency_toggle_keeps_period(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 5, "10")
+        self.assertContains(self.client.get("/"), "?moneda=USD&amp;desde=2025-10&amp;hasta=2026-09&amp;mes=2026-09".replace("&amp;", "&"))

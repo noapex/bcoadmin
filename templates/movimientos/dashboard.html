@@ -30,8 +30,8 @@
   <p class="center-align"><a href="?moneda={% if moneda == 'ARS' %}USD{% else %}ARS{% endif %}">Ver {% if moneda == 'ARS' %}Dólares{% else %}Pesos{% endif %}</a></p>
 {% else %}
 <div class="toolbar">
-  <a class="pill {% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS">Pesos</a>
-  <a class="pill {% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD">Dólares</a>
+  <a class="pill {% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Pesos</a>
+  <a class="pill {% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Dólares</a>
   <form method="get" style="display:inline-flex;align-items:center;gap:4px">
     <input type="hidden" name="moneda" value="{{ moneda }}">
     Desde <input type="month" name="desde" value="{{ desde }}">
@@ -42,9 +42,9 @@
 </div>
 
 <div class="kpis">
-  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">Ingresos {{ mes }}<b class="pos">$ {{ kpis.ingresos|floatformat:2|intcomma }}</b></a>
-  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">Gastos {{ mes }}<b class="neg">$ {{ kpis.gastos|floatformat:2|intcomma }}</b></a>
-  <div class="kpi">Balance<b class="{% if kpis.balance >= 0 %}pos{% else %}neg{% endif %}">$ {{ kpis.balance|floatformat:2|intcomma }}</b></div>
+  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">Ingresos {{ mes }}<b class="pos">$ {{ kpis.ingresos|floatformat:"2g" }}</b></a>
+  <a class="kpi" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">Gastos {{ mes }}<b class="neg">$ {{ kpis.gastos|floatformat:"2g" }}</b></a>
+  <div class="kpi">Balance<b class="{% if kpis.balance >= 0 %}pos{% else %}neg{% endif %}">$ {{ kpis.balance|floatformat:"2g" }}</b></div>
   <div class="kpi">Recurrentes<b class="{% if kpis.faltan %}neg{% else %}pos{% endif %}">{% if kpis.faltan %}{{ kpis.faltan }} faltan{% else %}al día{% endif %}</b></div>
 </div>
 
@@ -56,7 +56,7 @@
     {% for r in recurrentes %}
       <div class="rec">
         <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}">{{ r.icono }} {{ r.rec.nombre }}{% if r.rec.ultima_fecha %} <small class="grey-text">({{ r.rec.ultima_fecha|date:"d/m/Y" }})</small>{% endif %}</a>
-        <span>{% if r.rec.monto_ref %}$ {{ r.rec.monto_ref|floatformat:2|intcomma }}{% endif %}</span>
+        <span>{% if r.rec.monto_ref %}$ {{ r.rec.monto_ref|floatformat:"2g" }}{% endif %}</span>
       </div>
     {% empty %}
       <p class="grey-text">No hay pagos recurrentes detectados.</p>
@@ -72,6 +72,7 @@
   var PALETTE = ["#4a7bd9", "#e8a33d", "#9b59b6", "#2e9d5b", "#d0453d", "#17a2b8", "#999999"];
 
   new Chart(document.getElementById("chart-balance"), {
+    type: "bar",
     data: {
       labels: d.meses,
       datasets: [
