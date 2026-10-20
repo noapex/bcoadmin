@@ -45,6 +45,14 @@ class PayeeKeyTests(TestCase):
         self.assertNotEqual(payee_key("Debito automatico Federacion patro-0600123436000000111026"),
                             payee_key("Debito automatico Federacion patro-0600123439000000111026"))
 
+    def test_legacy_and_new_cuit_formats_share_key(self):
+        legacy = "DEBITO DEBIN                              ID DEBIN  8D0Q619L0MO071LN7JZ5RG CUIT 30703088534    "
+        new = "Debito debin Id debin jmqkyz9qqq7lgvwr9v50p3 cuit 30703 088534"
+        self.assertEqual(payee_key(legacy), payee_key(new))
+        self.assertEqual(payee_key(new), "debito debin id debin cuit 3070308853")
+        self.assertEqual(payee_key("Pago a proveedores x cuit 306491 11002"),
+                         payee_key("PAGO A PROVEEDORES X CUIT 30649111002"))
+
     def test_strips_accents_dates_amounts_usd(self):
         self.assertEqual(payee_key("Compra Cafetería 13/10/2026 $1.234,56 USD"), "compra cafeteria")
         self.assertEqual(payee_key("Impuesto 0,6% sobre $ 100,00"), "impuesto")
@@ -115,6 +123,19 @@ class ClassifyTests(TestCase):
         clasificar_todo()
         r.refresh_from_db()
         self.assertEqual((r.tipo, r.categoria.name), ("interno", CAT_PAGO_TARJETA))
+
+    def test_card_payment_resolver_ignores_inflows(self):
+        Tarjeta.objects.create(nombre="American", codigo="0003", fuente="amex", patron_pago="amex")
+        Resumen.objects.create(fuente="amex", hasta=date(2026, 10, 1), vencimiento=date(2026, 10, 13))
+        cat = Categoria.objects.create(name="Reintegros")
+        Regla.objects.create(patron="reintegro", categoria=cat)
+        devol = mk("Reintegro pago tarjeta amex", 5000, fecha=date(2026, 10, 13))
+        sin_regla = mk("Credito amex", 100, fecha=date(2026, 10, 13))
+        clasificar_todo()
+        devol.refresh_from_db()
+        sin_regla.refresh_from_db()
+        self.assertEqual((devol.tipo, devol.categoria), ("ingreso", cat))
+        self.assertEqual((sin_regla.tipo, sin_regla.categoria), ("ingreso", None))
 
     def test_standalone_resolver(self):
         Tarjeta.objects.create(nombre="V", codigo="1", fuente="visa", patron_pago="pago visa")

@@ -20,6 +20,7 @@ _TARJ_NRO = re.compile(r"tarj\.?\s*nro\.?\s*\d+")
 _DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{2,4}")
 _AMOUNT = re.compile(r"(?:sobre\s+)?(?:u\$s|\$)\s*-?[\d.,]+|-?[\d.,]*\d\s*%")
 _TOKEN = re.compile(r"[a-z0-9]+")
+_SPLIT_DIGITS = re.compile(r"(?<=\d)[ \t]+(?=\d)")  # "cuit 30703 088534" -> "cuit 30703088534"
 
 
 def payee_key(descripcion: str) -> str:
@@ -30,6 +31,7 @@ def payee_key(descripcion: str) -> str:
     text = _DATE.sub(" ", text)
     text = text.replace("*", " ").replace("/", " ")
     text = _AMOUNT.sub(" ", text)
+    text = _SPLIT_DIGITS.sub("", text)
     out = []
     for tok in _TOKEN.findall(text):
         has_digit = any(c.isdigit() for c in tok)
@@ -111,7 +113,10 @@ def _apply_rules(rules, card_payment=None):
         row.comercio = comercio
         if not row.categoria_manual:
             tipo, cat_id = _default_tipo(row.fuente, row.monto), None
-            resolved = card_payment(row) if card_payment and row.fuente == "cuenta" else None
+            # Only account outflows can be card payments; inflows fall through to rules/default.
+            es_pago = (card_payment and row.fuente == "cuenta"
+                       and row.monto is not None and row.monto < 0)
+            resolved = card_payment(row) if es_pago else None
             if resolved:
                 tipo, cat_id = resolved
             else:
