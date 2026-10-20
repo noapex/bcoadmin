@@ -49,8 +49,8 @@ Sample files live in the owner's `~/Downloads` (see §9). All are Santander AR.
 | Format | Recognise by | Content |
 |---|---|---|
 | **A. Card statement `.xlsx`** ("Último resumen - Visa 5544.xlsx", "… American Express 4623.xlsx") | A1–A3: "Movimientos del resumen", "Tarjeta … terminada en NNNN" | Header: closing/due dates, totals. Sections: "Pago de tarjeta y devoluciones", "Tarjeta de <holder> - <card>" (one per additional card possible), "Otros conceptos" (stamp tax, VAT, perceptions — only description + ARS amount). Columns: Fecha, Descripción, Cuotas ("6 de 9" or empty), Comprobante, Monto en pesos, Monto en dólares. Amounts are strings like `$159.654,11`, `U$S20,00`, `$-31.041,94`. **Fecha is empty on rows that share the previous row's date** (carry it forward). |
-| **B. Account movements `.xlsx`** ("movimientos (3).xlsx") | Sheet `UltimosMovimientos`, row "Cuenta \| Cuenta única 009-145530/4", header row "Fecha, Sucursal origen, Descripción, Referencia, Caja de Ahorro, Cuenta Corriente, Saldo" | Data starts in column B. Amount is in either *Caja de Ahorro* or *Cuenta Corriente* column (dot decimal, e.g. `-82212.63`). Descripción is `"<type> \t <detail>"`. Header row "Moneda" says Pesos/Dólares. |
-| **C. Monthly account PDF** ("YYYY-MM-DD_00720009007001455304.pdf", 24 files 2024-10 → 2026-09) | Text "Mi resumen de cuenta", "Período de movimientos" | Contains: (1) "Movimientos en pesos" — Fecha, Comprobante, Movimiento, Caja de Ahorro, Cuenta Corriente, Saldo; each movement spans 2 lines (type + detail), **date sometimes printed on the detail line instead of the first line**, comprobante sometimes missing; (2) "Movimientos en dólares"; (3) an embedded **Visa credit-card statement** ("Tarjeta Santander", "Total consumos de … Tarjeta terminada en 5544", columns Fecha, Comprobante, Descripción, Cuota, Pesos, Dólares); (4) "Tarjeta de débito" and services sections that **duplicate** account movements (must not be imported again); (5) legal/marketing pages. Text extraction with plain `extract_text()` is ambiguous; use word coordinates (pdfplumber `extract_words`) to assign columns. |
+| **B. Account movements `.xlsx`** ("movimientos (3).xlsx") | Sheet `UltimosMovimientos`, row "Cuenta \| Cuenta única <account>", header row "Fecha, Sucursal origen, Descripción, Referencia, Caja de Ahorro, Cuenta Corriente, Saldo" | Data starts in column B. Amount is in either *Caja de Ahorro* or *Cuenta Corriente* column (dot decimal, e.g. `-82212.63`). Descripción is `"<type> \t <detail>"`. Header row "Moneda" says Pesos/Dólares. |
+| **C. Monthly account PDF** ("YYYY-MM-DD_<account-number>.pdf", 24 files 2024-10 → 2026-09) | Text "Mi resumen de cuenta", "Período de movimientos" | Contains: (1) "Movimientos en pesos" — Fecha, Comprobante, Movimiento, Caja de Ahorro, Cuenta Corriente, Saldo; each movement spans 2 lines (type + detail), **date sometimes printed on the detail line instead of the first line**, comprobante sometimes missing; (2) "Movimientos en dólares"; (3) an embedded **Visa credit-card statement** ("Tarjeta Santander", "Total consumos de … Tarjeta terminada en 5544", columns Fecha, Comprobante, Descripción, Cuota, Pesos, Dólares); (4) "Tarjeta de débito" and services sections that **duplicate** account movements (must not be imported again); (5) legal/marketing pages. Text extraction with plain `extract_text()` is ambiguous; use word coordinates (pdfplumber `extract_words`) to assign columns. |
 | **D. Legacy account `.xls`** | current `xls_parser.py` behaviour | Keep working (files in `media/`). |
 
 Requirements:
@@ -91,7 +91,7 @@ Each movement has a **kind**: `ingreso`, `gasto`, or `interno`.
 - Card-side payments ("Su pago en pesos", "Su pago en usd").
 - Buying/selling dollars ("Debito por compra de dolares" in ARS and the
   matching USD credit).
-- Transfers between the owner's own accounts (e.g. "De perez/juan").
+- Transfers between the owner's own accounts (e.g. "De <owner surname>/<owner name>").
 - Investments in `IGNORAR` (FCI subscriptions, LEBACs, bonds).
 
 Kind is decided by rules (same rule engine as categories) with a sensible
@@ -296,7 +296,7 @@ parsing; parse `1.234,56` / `-1234.56` / `$-1.234,56` / `U$S20,00` explicitly.
 `~/Downloads/`: `Último resumen - American Express 4623.xlsx`,
 `Último resumen - Visa 5544.xlsx`, `movimientos (3).xlsx`,
 `movimientos (4).xlsx`, and 24 monthly PDFs
-`YYYY-MM-DD_00720009007001455304*.pdf` (2024-10-24 … 2026-09-24).
+`YYYY-MM-DD_<account-number>*.pdf` (2024-10-24 … 2026-09-24).
 
 ## 10. Left to the builder
 

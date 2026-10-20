@@ -196,12 +196,13 @@ class CardLinesTests(TestCase):
 
 
 SAMPLES = os.environ.get("BCOADMIN_SAMPLES_DIR")
+SAMPLES_GLOB = os.environ.get("BCOADMIN_SAMPLES_GLOB", "*.pdf")  # account PDFs, filtered by matches()
 
 
 @skipUnless(SAMPLES, "BCOADMIN_SAMPLES_DIR not set")
 class RealAccountPdfTests(TestCase):
     def test_real_pdfs_are_consistent(self):
-        paths = sorted(Path(SAMPLES).glob("*_00720009007001455304*.pdf"))
+        paths = [p for p in sorted(Path(SAMPLES).glob(SAMPLES_GLOB)) if account_pdf.matches(p)]
         self.assertTrue(paths)
         for path in paths:
             with self.subTest(path=path.name):
