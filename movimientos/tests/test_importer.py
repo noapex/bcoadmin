@@ -54,6 +54,33 @@ class DedupTests(TestCase):
         r = run(*movs)
         self.assertEqual((r.nuevos, r.duplicados), (0, 2))
 
+    def test_same_ref_4_days_apart_is_duplicate(self):
+        # Real case: debit-card purchase dated Fri in the xlsx, Mon (+3/+4) in the PDF.
+        run(mov(date(2025, 6, 19), "-30000", "2052504"))
+        r = run(mov(date(2025, 6, 23), "-30000", "002052504"))
+        self.assertEqual((r.nuevos, r.duplicados), (0, 1))
+
+    def test_equal_ref_8_days_apart_is_new(self):
+        run(mov(date(2025, 6, 1), "-30000", "2052504"))
+        r = run(mov(date(2025, 6, 9), "-30000", "2052504"))
+        self.assertEqual(r.nuevos, 1)
+
+    def test_one_empty_ref_5_days_apart_is_duplicate(self):
+        # Real case: SIRCREB withholding without receipt in the PDF, 5 days off in the xlsx.
+        run(mov(date(2026, 2, 13), "-21000"))
+        r = run(mov(date(2026, 2, 18), "-21000", "000011406"))
+        self.assertEqual((r.nuevos, r.duplicados), (0, 1))
+
+    def test_empty_ref_6_days_apart_is_new(self):
+        run(mov(date(2026, 2, 12), "-21000"))
+        r = run(mov(date(2026, 2, 18), "-21000", "000011406"))
+        self.assertEqual(r.nuevos, 1)
+
+    def test_different_refs_never_match_even_same_day(self):
+        run(mov(date(2026, 2, 13), "-21000", "1"))
+        r = run(mov(date(2026, 2, 13), "-21000", "2"))
+        self.assertEqual(r.nuevos, 1)
+
     def test_installment_next_cuota_is_new(self):
         run(mov(date(2026, 8, 24), "-100", "760275", "visa", cuota="14/18"))
         r = run(mov(date(2026, 9, 24), "-100", "760275", "visa", cuota="15/18"))

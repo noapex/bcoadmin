@@ -15,7 +15,9 @@ from ..parsers.base import norm_ref
 from .classify import clasificar_todo
 from .recurring import detectar_recurrentes
 
-DATE_TOLERANCE_DAYS = 2
+# The bank dates the same movement differently in the PDF and the xlsx (seen: 3-5 days).
+SAME_REF_TOLERANCE_DAYS = 7      # both receipts present and equal
+MISSING_REF_TOLERANCE_DAYS = 5   # either side has no receipt
 AMOUNT_EPS = Decimal("0.005")
 CARD_SOURCES = {"visa", "amex", "master"}
 
@@ -50,8 +52,9 @@ def _default_tipo(p):
 
 
 def _find_duplicate(p, ref, consumed):
-    lo = _aware(p.fecha - timedelta(days=DATE_TOLERANCE_DAYS))
-    hi = _aware(p.fecha + timedelta(days=DATE_TOLERANCE_DAYS + 1))
+    window = max(SAME_REF_TOLERANCE_DAYS, MISSING_REF_TOLERANCE_DAYS)
+    lo = _aware(p.fecha - timedelta(days=window))
+    hi = _aware(p.fecha + timedelta(days=window + 1))
     # Legacy amounts are SQLite REALs: filter by range, then compare exactly in Python.
     rows = Detalle.objects.filter(
         fuente=p.fuente, moneda=p.moneda, cuota=p.cuota,
@@ -62,9 +65,16 @@ def _find_duplicate(p, ref, consumed):
     for row in rows:
         if row.monto is None or Decimal(str(row.monto)).quantize(Decimal("0.01")) != p.monto.quantize(Decimal("0.01")):
             continue
-        if not (row.ref == ref or row.ref == "" or ref == ""):
+        if row.ref and ref:
+            if row.ref != ref:
+                continue
+            tolerance = SAME_REF_TOLERANCE_DAYS
+        else:
+            tolerance = MISSING_REF_TOLERANCE_DAYS
+        days = abs((_local_date(row.fecha) - p.fecha).days)
+        if days > tolerance:
             continue
-        key = (abs((_local_date(row.fecha) - p.fecha).days), row.ref != ref, row.pk)
+        key = (days, row.ref != ref, row.pk)
         if best_key is None or key < best_key:
             best, best_key = row, key
     return best
