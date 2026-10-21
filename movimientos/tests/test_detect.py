@@ -67,8 +67,18 @@ class LegacyRowsTests(SimpleTestCase):
         self.assertEqual(len(r.movimientos), 1)
         self.assertEqual(r.movimientos[0].descripcion, "Pago")
 
-    def test_matches_requires_xls_extension(self):
+    def test_matches_rejects_missing_file(self):
         self.assertFalse(legacy_xls.matches("/nonexistent/file.xlsx"))
+
+    def test_binary_xls_detected_by_content_not_extension(self):
+        # The old sync renamed binary .xls downloads to .xlsx.
+        with tempfile.TemporaryDirectory() as tmp:
+            renamed = Path(tmp) / "UltimosMovimientos_1.xlsx"
+            renamed.write_bytes(legacy_xls.CFB_MAGIC + b"\0" * 64)
+            zipped = Path(tmp) / "real.xlsx"
+            zipped.write_bytes(b"PK\x03\x04" + b"\0" * 64)
+            self.assertTrue(legacy_xls.is_binary_xls(renamed))
+            self.assertFalse(legacy_xls.is_binary_xls(zipped))
 
 
 class DetalleDecimalTests(TestCase):

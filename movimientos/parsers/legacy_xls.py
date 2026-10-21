@@ -32,9 +32,18 @@ def _read_sheets(path):
             for s in book.sheets()]
 
 
+CFB_MAGIC = bytes.fromhex("d0cf11e0a1b11ae1")  # OLE2 container used by binary .xls
+
+
+def is_binary_xls(path) -> bool:
+    """True for binary .xls content, whatever the extension (old sync saved them as .xlsx)."""
+    with open(path, "rb") as fh:
+        return fh.read(len(CFB_MAGIC)) == CFB_MAGIC
+
+
 def matches(path) -> bool:
     try:
-        if not str(path).lower().endswith(".xls"):
+        if not is_binary_xls(path):
             return False
         return any(_header_cols(r) for _, rows, _ in _read_sheets(path) for r in rows[:30])
     except Exception:
