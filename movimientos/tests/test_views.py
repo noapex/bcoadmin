@@ -491,3 +491,45 @@ class TarjetaFilterTests(TestCase):
     def test_unknown_value_ignored(self):
         r = self.client.get("/movimientos/?mes=2026-09&tarjeta=zzz")
         self.assertEqual(len(r.context["movimientos"]), 5)
+
+
+class MovimientosPeriodoTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        for d, monto, moneda in [(date(2026, 7, 5), "-10.00", "ARS"), (date(2026, 8, 5), "-20.00", "ARS"),
+                                 (date(2026, 9, 5), "-30.00", "ARS"), (date(2026, 8, 6), "-5.00", "USD")]:
+            Detalle.objects.create(codigo="1", fecha=datetime(d.year, d.month, d.day), cuenta="c",
+                                   descripcion=f"mov {d}", monto=Decimal(monto), moneda=moneda, tipo="gasto")
+
+    def _descs(self, resp):
+        return sorted(m.descripcion for m in resp.context["movimientos"])
+
+    def test_default_is_last_month_with_data(self):
+        r = self.client.get("/movimientos/")
+        self.assertEqual(self._descs(r), ["mov 2026-09-05"])
+        self.assertContains(r, 'name="desde"')
+        self.assertContains(r, 'name="hasta"')
+
+    def test_range_filter(self):
+        r = self.client.get("/movimientos/?desde=2026-07&hasta=2026-08")
+        self.assertEqual(self._descs(r), ["mov 2026-07-05", "mov 2026-08-05"])
+        self.assertEqual(r.context["total"], Decimal("-30.00"))
+
+    def test_mes_is_shorthand_for_single_month(self):
+        r = self.client.get("/movimientos/?mes=2026-08")
+        self.assertEqual(self._descs(r), ["mov 2026-08-05"])
+        self.assertEqual((r.context["desde"], r.context["hasta"]), ("2026-08", "2026-08"))
+
+    def test_reversed_range_is_swapped(self):
+        r = self.client.get("/movimientos/?desde=2026-09&hasta=2026-07")
+        self.assertEqual(len(self._descs(r)), 3)
+
+    def test_form_keeps_other_filters(self):
+        r = self.client.get("/movimientos/?mes=2026-08&tipo=gasto&categoria=none&fuente=cuenta")
+        for name, value in [("tipo", "gasto"), ("categoria", "none"), ("fuente", "cuenta"), ("moneda", "ARS")]:
+            self.assertContains(r, f'type="hidden" name="{name}" value="{value}"')
+
+    def test_currency_toggle_keeps_range(self):
+        r = self.client.get("/movimientos/?desde=2026-07&hasta=2026-08&moneda=USD")
+        self.assertEqual(self._descs(r), ["mov 2026-08-06"])
+        self.assertContains(r, "?moneda=ARS&desde=2026-07&hasta=2026-08")

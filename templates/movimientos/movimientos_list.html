@@ -15,8 +15,21 @@
     <p class="sub">{{ movimientos|length }} movimiento{{ movimientos|length|pluralize }} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b></p>
   </div>
 </div>
+<div class="toolbar">
+  <div class="seg" role="group" aria-label="Moneda">
+    <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}{% endif %}{% if filtros_qs %}&{{ filtros_qs }}{% endif %}">Pesos</a>
+    <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}{% endif %}{% if filtros_qs %}&{{ filtros_qs }}{% endif %}">Dólares</a>
+  </div>
+  <form method="get" class="periodo">
+    <input type="hidden" name="moneda" value="{{ moneda }}">
+    {% for name, value in filtros %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <label class="field"><span>Desde</span><input type="month" name="desde" value="{{ desde|default:'' }}"></label>
+    <label class="field"><span>Hasta</span><input type="month" name="hasta" value="{{ hasta|default:'' }}"></label>
+    <button class="btn btn-sm" type="submit"><svg class="ic ic-sm"><use href="#i-calendar"/></svg>Ver</button>
+  </form>
+</div>
 <p class="filtros">
-  <span class="badge b-accent">{{ moneda }}</span>{% if mes %}<span class="badge">{{ mes }}</span>{% endif %}{% if categoria %}<span class="badge">categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}</span>{% endif %}{% if tipo %}<span class="badge {% if tipo == 'ingreso' %}b-pos{% elif tipo == 'gasto' %}b-neg{% endif %}">{{ tipo }}</span>{% endif %}{% if fuente %}<span class="badge">fuente: {{ fuente }}</span>{% endif %}{% if tarjeta %}<span class="badge">pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}</span>{% endif %}{% if recurrente %}<span class="badge">recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}</span>{% endif %}
+  <span class="badge b-accent">{{ moneda }}</span>{% if desde %}<span class="badge">{% if desde == hasta %}{{ desde }}{% else %}{{ desde }} → {{ hasta }}{% endif %}</span>{% endif %}{% if categoria %}<span class="badge">categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}</span>{% endif %}{% if tipo %}<span class="badge {% if tipo == 'ingreso' %}b-pos{% elif tipo == 'gasto' %}b-neg{% endif %}">{{ tipo }}</span>{% endif %}{% if fuente %}<span class="badge">fuente: {{ fuente }}</span>{% endif %}{% if tarjeta %}<span class="badge">pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}</span>{% endif %}{% if recurrente %}<span class="badge">recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}</span>{% endif %}
   <a class="back-link" href="{% url 'dashboard' %}?moneda={{ moneda }}"><svg class="ic ic-sm"><use href="#i-back"/></svg>volver al tablero</a>
 </p>
 <div class="card table-card">

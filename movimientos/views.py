@@ -5,6 +5,7 @@ import tempfile
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import urlencode
 
 from django.db.models import Sum
 from django.shortcuts import render
@@ -148,14 +149,21 @@ def tarjetas(request):
 def movimientos_list(request):
     moneda = _moneda(request)
     qs = Detalle.objects.filter(activo=True, moneda=moneda)
+    # Period: `mes` is shorthand for a one-month range; otherwise `desde`/`hasta`.
+    # A recurring drill-down with no period shows all its history.
     mes = _mes(request.GET.get("mes"))
+    desde = mes or _mes(request.GET.get("desde"))
+    hasta = mes or _mes(request.GET.get("hasta"))
     recurrente = request.GET.get("recurrente", "")
-    if mes is None and not recurrente:
-        mes = stats.ultimo_mes_con_datos(moneda)
-    if mes:
-        y, m = int(mes[:4]), int(mes[5:])
-        nxt = _shift(mes, 1)
-        qs = qs.filter(fecha__gte=date(y, m, 1), fecha__lt=date(int(nxt[:4]), int(nxt[5:]), 1))
+    if not (desde or hasta) and not recurrente:
+        desde = hasta = stats.ultimo_mes_con_datos(moneda)
+    if desde or hasta:
+        desde, hasta = desde or hasta, hasta or desde
+        desde, hasta = min(desde, hasta), max(desde, hasta)
+        desde = max(desde, _shift(hasta, -(MAX_MESES - 1)))
+        nxt = _shift(hasta, 1)
+        qs = qs.filter(fecha__gte=date(int(desde[:4]), int(desde[5:]), 1),
+                       fecha__lt=date(int(nxt[:4]), int(nxt[5:]), 1))
     categoria = request.GET.get("categoria", "")
     cat = rec = None
     if categoria == "none":
@@ -185,11 +193,15 @@ def movimientos_list(request):
         tarjeta = ""
     qs = qs.select_related("categoria").order_by("-fecha", "-pk")
     total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
+    # Non-period filters, carried by the period form and the currency toggle.
+    filtros = [(k, v) for k, v in [("categoria", categoria), ("tipo", tipo), ("fuente", fuente),
+                                   ("tarjeta", tarjeta), ("recurrente", recurrente)] if v]
     return render(request, "movimientos/movimientos_list.html", {
-        "movimientos": qs, "total": total, "moneda": moneda, "mes": mes,
+        "movimientos": qs, "total": total, "moneda": moneda, "desde": desde, "hasta": hasta,
         "categoria": categoria, "tipo": tipo, "recurrente": recurrente, "fuente": fuente,
         "tarjeta": tarjeta,
         "categoria_obj": cat, "recurrente_obj": rec,
+        "filtros": filtros, "filtros_qs": urlencode(filtros),
     })
 
 
