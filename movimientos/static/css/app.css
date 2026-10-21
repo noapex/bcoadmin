@@ -522,6 +522,8 @@ table.matriz th:first-child, table.matriz td:first-child {
   box-shadow: 1px 0 0 var(--line);
 }
 table.matriz thead th:first-child { z-index: 3; background: #121a2e; }
+/* Opaque even-row tone so zebra striping never makes the sticky column see-through. */
+table.matriz tbody tr:nth-child(even) td:first-child { background: #12192c; }
 table.matriz tbody tr:hover td:first-child { background: #1a2140; }
 table.matriz tfoot td:first-child { background: #121a2e; }
 table.matriz tr.raiz td { font-weight: 600; color: var(--text-strong); }
