@@ -19,6 +19,11 @@ class BaseHelpersTests(TestCase):
         for empty in ("", None, "-", "   "):
             self.assertIsNone(parse_amount(empty))
 
+    def test_parse_amount_rejects_text_with_digits(self):
+        # A file name or reference in an amount column must not become a number.
+        for raw in ("2026-02-19_00720009007001455304.pdf", "Regimen 0,70%", "12/10/2026", "abc123"):
+            self.assertIsNone(parse_amount(raw), raw)
+
     def test_parse_date(self):
         self.assertEqual(parse_date("24/08/26"), date(2026, 8, 24))
         self.assertEqual(parse_date("17/04/2026"), date(2026, 4, 17))

@@ -51,8 +51,9 @@ def parse_amount(value: str | float | int | None) -> Decimal | None:
         return None
     if "-" in text[:m.start()]:
         negative = True
-    num = text[m.start():]
-    num = re.sub(r"[^\d.,]", "", num)
+    num = text[m.start():].replace(" ", "")
+    if not re.fullmatch(r"\d[\d.,]*", num) or not re.fullmatch(r"[-$US\s]*", text[:m.start()]):
+        return None
     if "," in num:
         num = num.replace(".", "").replace(",", ".")
     try:
