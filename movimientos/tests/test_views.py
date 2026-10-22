@@ -533,3 +533,16 @@ class MovimientosPeriodoTests(TestCase):
         r = self.client.get("/movimientos/?desde=2026-07&hasta=2026-08&moneda=USD")
         self.assertEqual(self._descs(r), ["mov 2026-08-06"])
         self.assertContains(r, "?moneda=ARS&desde=2026-07&hasta=2026-08")
+
+
+class MovimientosParcialTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        Detalle.objects.create(codigo="1", fecha=datetime(2026, 9, 5), cuenta="c", descripcion="a",
+                               monto=Decimal("-1234.50"), moneda="ARS", tipo="gasto")
+
+    def test_rows_carry_raw_amount_and_partial_placeholders(self):
+        r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertContains(r, 'data-monto="-1234.50"')
+        self.assertContains(r, 'id="parcial"')
+        self.assertContains(r, 'id="parcial-fila"')

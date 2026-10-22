@@ -12,7 +12,7 @@
 <div class="page-head">
   <div>
     <h1>Movimientos</h1>
-    <p class="sub">{{ movimientos|length }} movimiento{{ movimientos|length|pluralize }} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b></p>
+    <p class="sub">{{ movimientos|length }} movimiento{{ movimientos|length|pluralize }} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b><span id="parcial" hidden> · Parcial <b class="num"></b> <span class="parcial-n"></span></span></p>
   </div>
 </div>
 <div class="toolbar">
@@ -48,7 +48,7 @@
       <td>{{ d.fuente }}</td>
       <td class="desc-cell">{{ d.descripcion }}</td>
       <td class="num">{{ d.cuota }}</td>
-      <td class="r {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap">{{ d.monto|floatformat:"2g" }}</td>
+      <td class="r {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap" data-monto="{{ d.monto|default_if_none:0|stringformat:'s' }}">{{ d.monto|floatformat:"2g" }}</td>
       <td class="tipo">{{ d.tipo }}</td>
       <td class="cat-cell">{{ d.categoria.name|default:"Sin categoría" }}</td>
       <td><a class="icon-btn" href="{% url 'admin:movimientos_detalle_change' d.pk %}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a></td>
@@ -58,6 +58,7 @@
   {% endfor %}
   </tbody>
   <tbody class="tablesorter-infoOnly">
+    <tr id="parcial-fila" hidden><th colspan="4">Parcial <span class="parcial-n"></span></th><th class="r parcial-v"></th><th colspan="3"></th></tr>
     <tr><th colspan="4">Total</th><th class="r">{{ total|floatformat:"2g" }}</th><th colspan="3"></th></tr>
   </tbody>
 </table>
@@ -65,8 +66,27 @@
 </div>
 <script>
   $(function () {
-    $("#movs").tablesorter({theme: "app", widthFixed: false, widgets: ["filter"],
-      widgetOptions: {filter_placeholder: {search: "Filtrar…"}}});
+    var fmt = new Intl.NumberFormat("es-AR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    var $tabla = $("#movs");
+
+    // Sum the rows left visible by the column filters; hide the partial when nothing is filtered.
+    function actualizarParcial() {
+      var $todas = $tabla.children("tbody:not(.tablesorter-infoOnly)").children("tr").has("td[data-monto]");
+      var $visibles = $todas.not(".filtered");
+      var suma = 0;
+      $visibles.find("td[data-monto]").each(function () { suma += parseFloat(this.dataset.monto) || 0; });
+      var filtrado = $visibles.length < $todas.length;
+      var clase = suma < 0 ? "neg" : "pos";
+      var n = "(" + $visibles.length + " de " + $todas.length + ")";
+      $("#parcial, #parcial-fila").prop("hidden", !filtrado);
+      $("#parcial b").text(fmt.format(suma)).removeClass("neg pos").addClass(clase);
+      $(".parcial-v").text(fmt.format(suma)).removeClass("neg pos").addClass(clase);
+      $(".parcial-n").text(n);
+    }
+
+    $tabla.tablesorter({theme: "app", widthFixed: false, widgets: ["filter"],
+      widgetOptions: {filter_placeholder: {search: "Filtrar…"}}})
+      .on("filterEnd", actualizarParcial);
   });
 </script>
 {% endblock %}
