@@ -47,13 +47,13 @@ def _shift(mes, n):
     return "%04d-%02d" % (i // 12, i % 12 + 1)
 
 
-def _periodo(request, ultimo):
-    """(desde, hasta) from GET; default: the 12 months ending at `ultimo`.
+def _periodo(request, ultimo, meses=12):
+    """(desde, hasta) from GET; default: the `meses` months ending at `ultimo`.
 
     The span is capped at MAX_MESES by moving `desde` forward.
     """
     hasta = _mes(request.GET.get("hasta")) or ultimo
-    desde = _mes(request.GET.get("desde")) or _shift(hasta, -11)
+    desde = _mes(request.GET.get("desde")) or _shift(hasta, -(meses - 1))
     return max(min(desde, hasta), _shift(hasta, -(MAX_MESES - 1))), hasta
 
 
@@ -125,7 +125,7 @@ def categorias(request):
     ultimo = stats.ultimo_mes_con_datos(moneda)
     ctx = {"moneda": moneda, "vacio": ultimo is None}
     if ultimo is not None:
-        desde, hasta = _periodo(request, ultimo)
+        desde, hasta = _periodo(request, ultimo, meses=6)
         ingresos = stats.ingresos_por_categoria(moneda, desde, hasta)
         # Income touches few categories: list only those with income in the period.
         ingresos["filas"] = [f for f in ingresos["filas"] if f["total"]]

@@ -350,7 +350,7 @@ class CategoriasPageTests(TestCase):
     def test_renders_tree_with_links(self):
         r = self.client.get(reverse("categorias"))
         self.assertEqual(r.status_code, 200)
-        self.assertEqual((r.context["desde"], r.context["hasta"]), ("2025-10", "2026-09"))
+        self.assertEqual((r.context["desde"], r.context["hasta"]), ("2026-04", "2026-09"))  # last 6 months
         self.assertContains(r, "Servicios")
         self.assertContains(r, "Luz")
         self.assertContains(r, "1.234,50")
@@ -462,7 +462,8 @@ class PeriodoClampTests(TestCase):
                 r = self.client.get(url + q)
                 self.assertEqual(r.status_code, 200, url + q)
                 if url != "/movimientos/":
-                    self.assertEqual((r.context["desde"], r.context["hasta"]), ("2025-10", "2026-09"), url + q)
+                    desde = "2026-04" if url == "/categorias/" else "2025-10"  # categorías defaults to 6 months
+                    self.assertEqual((r.context["desde"], r.context["hasta"]), (desde, "2026-09"), url + q)
 
 
 class TarjetaFilterTests(TestCase):
