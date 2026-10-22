@@ -46,7 +46,7 @@
   <div class="card kpi">
     <span class="kpi-head"><span class="kpi-label">Recurrentes</span><span class="kpi-icon"><svg class="ic"><use href="#i-repeat"/></svg></span></span>
     <span class="kpi-value">{% if kpis.faltan %}<span class="badge st-falta">{{ kpis.faltan }} faltan</span>{% else %}<span class="badge st-pagado">al día</span>{% endif %}</span>
-    <span class="kpi-foot">{{ recurrentes|length }} pagos detectados</span>
+    <span class="kpi-foot">{{ recurrentes|length }} pago{{ recurrentes|length|pluralize }} monitoreado{{ recurrentes|length|pluralize }}</span>
   </div>
 </div>
 
@@ -64,7 +64,8 @@
     <div class="chart-box"><canvas id="chart-evol" aria-label="Evolución por categoría" role="img"></canvas></div>
   </section>
   <section class="card">
-    <h2 class="card-title">Recurrentes <small>{{ recurrentes|length }}</small></h2>
+    <h2 class="card-title"><span>Recurrentes <small>{{ recurrentes|length }}</small></span>
+      {% if sugerencias %}<a class="badge b-accent" href="{% url 'recurrentes' %}">{{ sugerencias }} sugerencia{{ sugerencias|pluralize }}</a>{% endif %}</h2>
     <div class="rec-list">
     {% for r in recurrentes %}
       <div class="rec">
@@ -78,7 +79,11 @@
         </span>
       </div>
     {% empty %}
-      <p class="empty-inline"><svg class="ic"><use href="#i-repeat"/></svg>No hay pagos recurrentes detectados.</p>
+      <div class="empty-inline rec-vacio">
+        <svg class="ic"><use href="#i-repeat"/></svg>
+        <span>Todavía no monitoreás pagos recurrentes.</span>
+        {% if sugerencias %}<a class="btn btn-sm" href="{% url 'recurrentes' %}">Revisá {{ sugerencias }} sugerencia{{ sugerencias|pluralize }}</a>{% endif %}
+      </div>
     {% endfor %}
     </div>
   </section>

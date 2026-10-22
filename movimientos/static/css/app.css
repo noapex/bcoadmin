@@ -703,3 +703,19 @@ table.t td.cat-cell { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* ---------- Recurrentes ---------- */
+table.rec-tabla td.acciones, table.rec-tabla td.r { white-space: nowrap; }
+table.rec-tabla td.acciones { text-align: right; }
+table.rec-tabla td.acciones form { display: inline; margin: 0 0 0 6px; }
+.rec-nombre { font-weight: 500; color: var(--text-strong); }
+table.t td a.rec-sub { display: block; font-size: 12px; color: var(--faint); }
+table.t td a.rec-sub:hover { color: var(--accent-2); }
+.rec-bulk { display: flex; justify-content: flex-end; margin-top: 10px; }
+details.plegable > summary { cursor: pointer; list-style: none; }
+details.plegable > summary::-webkit-details-marker { display: none; }
+details.plegable > summary .chev { transition: transform .15s var(--ease); }
+details.plegable[open] > summary .chev { transform: rotate(90deg); }
+details.plegable[open] > summary { color: var(--text); }
+.card-title .badge:hover { color: #fff; }
+.rec-vacio { flex-wrap: wrap; }

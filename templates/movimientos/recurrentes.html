@@ -1,0 +1,123 @@
+{% extends 'movimientos/base.html' %}
+{% block title %}Recurrentes{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Pagos recurrentes</h1>
+    <p class="sub">Solo los monitoreados cuentan en el tablero. Revisá las sugerencias detectadas.</p>
+  </div>
+</div>
+
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-inbox"/></svg>Sugerencias <span class="badge">{{ sugeridos|length }}</span></h2>
+{% if sugeridos %}
+<div class="card table-card">
+<div class="tabla-scroll">
+<table class="t rec-tabla">
+  <thead>
+    <tr><th>Nombre</th><th>Fuente</th><th>Moneda</th><th>Frecuencia</th><th class="r">Día</th>
+        <th class="r">Monto ref.</th><th>Último</th><th class="r">Acciones</th></tr>
+  </thead>
+  <tbody>
+  {% for i in sugeridos %}
+    <tr>
+      <td><span class="rec-nombre">{{ i.rec.nombre }}</span>
+        <a class="rec-sub" href="{% url 'movimientos' %}?moneda={{ i.rec.moneda }}&amp;recurrente={{ i.rec.pk }}">ver movimientos</a></td>
+      <td class="tipo">{{ i.rec.fuente }}</td>
+      <td>{{ i.rec.moneda }}</td>
+      <td>{{ i.frecuencia }}</td>
+      <td class="r">{{ i.rec.dia_habitual }}</td>
+      <td class="r">{% if i.rec.monto_ref is not None %}$ {{ i.rec.monto_ref|floatformat:"2g" }}{% else %}<span class="dash">–</span>{% endif %}</td>
+      <td>{{ i.rec.ultima_fecha|date:"d/m/Y"|default:"–" }}</td>
+      <td class="acciones">
+        <form method="post" action="{% url 'recurrente_estado' i.rec.pk 'monitorear' %}">{% csrf_token %}
+          <button type="submit" class="btn btn-sm"><svg class="ic ic-sm"><use href="#i-check"/></svg>Monitorear</button>
+        </form>
+        <form method="post" action="{% url 'recurrente_estado' i.rec.pk 'ignorar' %}">{% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-ghost"><svg class="ic ic-sm"><use href="#i-x"/></svg>Ignorar</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+</div>
+<form method="post" action="{% url 'recurrentes_ignorar_todas' %}" class="rec-bulk"
+      onsubmit="return confirm('¿Ignorar las {{ sugeridos|length }} sugerencias? Podés restaurarlas desde «Ignorados».');">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-sm btn-ghost"><svg class="ic ic-sm"><use href="#i-x"/></svg>Ignorar todas las sugerencias</button>
+</form>
+{% else %}
+<div class="card"><p class="empty-inline"><svg class="ic"><use href="#i-check"/></svg>No hay sugerencias pendientes. Las nuevas aparecen al importar movimientos.</p></div>
+{% endif %}
+
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-repeat"/></svg>Monitoreados <span class="badge">{{ monitoreados|length }}</span></h2>
+{% if monitoreados %}
+<div class="card table-card">
+<div class="tabla-scroll">
+<table class="t rec-tabla">
+  <thead>
+    <tr><th>Nombre</th><th>Fuente</th><th>Moneda</th><th>Frecuencia</th><th>Estado</th>
+        <th class="r">Monto ref.</th><th>Último</th><th class="r">Acciones</th></tr>
+  </thead>
+  <tbody>
+  {% for i in monitoreados %}
+    <tr>
+      <td><span class="rec-nombre">{{ i.rec.nombre }}</span>
+        <a class="rec-sub" href="{% url 'movimientos' %}?moneda={{ i.rec.moneda }}&amp;recurrente={{ i.rec.pk }}">ver movimientos</a></td>
+      <td class="tipo">{{ i.rec.fuente }}</td>
+      <td>{{ i.rec.moneda }}</td>
+      <td>{{ i.frecuencia }}</td>
+      <td><span class="badge st-{{ i.estado }}"><span aria-hidden="true">{{ i.icono }}</span> {{ i.etiqueta }}</span></td>
+      <td class="r">{% if i.rec.monto_ref is not None %}$ {{ i.rec.monto_ref|floatformat:"2g" }}{% else %}<span class="dash">–</span>{% endif %}</td>
+      <td>{{ i.rec.ultima_fecha|date:"d/m/Y"|default:"–" }}</td>
+      <td class="acciones">
+        <form method="post" action="{% url 'recurrente_estado' i.rec.pk 'dejar' %}">{% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-ghost"><svg class="ic ic-sm"><use href="#i-x"/></svg>Dejar de monitorear</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+</div>
+{% else %}
+<div class="card"><p class="empty-inline"><svg class="ic"><use href="#i-repeat"/></svg>Todavía no monitoreás ningún pago. Elegí cuáles seguir entre las sugerencias.</p></div>
+{% endif %}
+
+<details class="plegable">
+  <summary class="section-title"><svg class="ic ic-sm chev"><use href="#i-chevron"/></svg>Ignorados <span class="badge">{{ ignorados|length }}</span></summary>
+  {% if ignorados %}
+  <div class="card table-card">
+  <div class="tabla-scroll">
+  <table class="t rec-tabla">
+    <thead>
+      <tr><th>Nombre</th><th>Fuente</th><th>Moneda</th><th class="r">Monto ref.</th><th>Último</th><th class="r">Acciones</th></tr>
+    </thead>
+    <tbody>
+    {% for r in ignorados %}
+      <tr>
+        <td><span class="rec-nombre">{{ r.nombre }}</span>
+          <a class="rec-sub" href="{% url 'movimientos' %}?moneda={{ r.moneda }}&amp;recurrente={{ r.pk }}">ver movimientos</a></td>
+        <td class="tipo">{{ r.fuente }}</td>
+        <td>{{ r.moneda }}</td>
+        <td class="r">{% if r.monto_ref is not None %}$ {{ r.monto_ref|floatformat:"2g" }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td>{{ r.ultima_fecha|date:"d/m/Y"|default:"–" }}</td>
+        <td class="acciones">
+          <form method="post" action="{% url 'recurrente_estado' r.pk 'restaurar' %}">{% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-ghost"><svg class="ic ic-sm"><use href="#i-back"/></svg>Restaurar</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  </div>
+  {% else %}
+  <div class="card"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>No ignoraste ningún pago.</p></div>
+  {% endif %}
+</details>
+{% endblock %}

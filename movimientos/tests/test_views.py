@@ -227,10 +227,10 @@ class DashboardTests(TestCase):
     def test_inactivo_not_counted_and_listed_last(self):
         Recurrente.objects.create(
             nombre="Aaa viejo", clave="viejo", moneda="ARS", fuente="cuenta",
-            ultima_fecha=date(2026, 6, 1), dia_habitual=1)
+            ultima_fecha=date(2026, 6, 1), dia_habitual=1, estado_admin="confirmado")
         Recurrente.objects.create(
             nombre="Zzz al dia", clave="aldia", moneda="ARS", fuente="cuenta",
-            ultima_fecha=date(2026, 9, 1), dia_habitual=1)
+            ultima_fecha=date(2026, 9, 1), dia_habitual=1, estado_admin="confirmado")
         r = self.client.get("/")
         self.assertEqual(r.context["kpis"]["faltan"], 1)
         self.assertEqual([(i["rec"].nombre, i["estado"]) for i in r.context["recurrentes"]],

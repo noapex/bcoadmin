@@ -7,8 +7,11 @@ from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlencode
 
+from django.contrib import messages
 from django.db.models import Sum
-from django.shortcuts import render
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import FileFieldForm
 from .get_movs import download_movs
@@ -69,12 +72,26 @@ def _f(value):
     return float(value) if value is not None else None
 
 
+FRECUENCIA_ETIQUETA = {1: "mensual", 2: "bimestral", 3: "trimestral", 6: "semestral", 12: "anual"}
+# accion -> (new estado_admin, success message)
+ACCIONES_RECURRENTE = {
+    "monitorear": ("confirmado", "“{}” ahora se monitorea."),
+    "ignorar": ("silenciado", "“{}” se ignora."),
+    "dejar": ("silenciado", "“{}” dejó de monitorearse."),
+    "restaurar": ("sugerido", "“{}” volvió a sugerencias."),
+}
+
+
+def _con_estado(rec):
+    est = recurring.estado(rec)
+    return {"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, ""),
+            "etiqueta": ESTADO_ETIQUETA.get(est, est),
+            "frecuencia": FRECUENCIA_ETIQUETA.get(rec.frecuencia_meses, f"cada {rec.frecuencia_meses} meses")}
+
+
 def _recurrentes(moneda):
-    items = []
-    for rec in Recurrente.objects.filter(moneda=moneda).exclude(estado_admin="silenciado"):
-        est = recurring.estado(rec)
-        items.append({"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, ""),
-                      "etiqueta": ESTADO_ETIQUETA.get(est, est)})
+    """Monitored (confirmado) items of a currency, sorted by urgency."""
+    items = [_con_estado(rec) for rec in Recurrente.objects.filter(moneda=moneda, estado_admin="confirmado")]
     items.sort(key=lambda i: (ESTADO_ORDEN.get(i["estado"], 9), i["rec"].nombre))
     return items
 
@@ -115,9 +132,41 @@ def dashboard(request):
                  "balance": actual["balance"],
                  "faltan": sum(1 for r in recs if r["estado"] == "falta")},
         "recurrentes": recs,
+        "sugerencias": Recurrente.objects.filter(estado_admin="sugerido").count(),
         "data": data,
     })
     return render(request, "movimientos/dashboard.html", ctx)
+
+
+def recurrentes(request):
+    sugeridos = Recurrente.objects.filter(estado_admin="sugerido").order_by("-puntaje", "nombre", "pk")
+    monitoreados = []
+    for moneda in MONEDAS:
+        monitoreados += _recurrentes(moneda)
+    return render(request, "movimientos/recurrentes.html", {
+        "sugeridos": [_con_estado(rec) for rec in sugeridos],
+        "monitoreados": monitoreados,
+        "ignorados": Recurrente.objects.filter(estado_admin="silenciado").order_by("nombre", "pk"),
+    })
+
+
+@require_POST
+def recurrente_estado(request, pk, accion):
+    if accion not in ACCIONES_RECURRENTE:
+        raise Http404
+    rec = get_object_or_404(Recurrente, pk=pk)
+    nuevo, mensaje = ACCIONES_RECURRENTE[accion]
+    # Only estado_admin changes: never save() the whole row.
+    Recurrente.objects.filter(pk=rec.pk).update(estado_admin=nuevo)
+    messages.success(request, mensaje.format(rec.nombre))
+    return redirect("recurrentes")
+
+
+@require_POST
+def recurrentes_ignorar_todas(request):
+    n = Recurrente.objects.filter(estado_admin="sugerido").update(estado_admin="silenciado")
+    messages.success(request, f"{n} sugerencia{'s' if n != 1 else ''} ignorada{'s' if n != 1 else ''}.")
+    return redirect("recurrentes")
 
 
 def categorias(request):

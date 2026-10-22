@@ -28,6 +28,7 @@
       <a href="{% url 'dashboard' %}" class="{% if u == 'dashboard' %}on{% endif %}"><svg class="ic"><use href="#i-dashboard"/></svg>Tablero</a>
       <a href="{% url 'categorias' %}" class="{% if u == 'categorias' or u|slice:':9' == 'categoria' or u|slice:':5' == 'regla' %}on{% endif %}"><svg class="ic"><use href="#i-pie"/></svg>Categorías</a>
       <a href="{% url 'tarjetas' %}" class="{% if u == 'tarjetas' %}on{% endif %}"><svg class="ic"><use href="#i-card"/></svg>Tarjetas</a>
+      <a href="{% url 'recurrentes' %}" class="{% if u == 'recurrentes' %}on{% endif %}"><svg class="ic"><use href="#i-repeat"/></svg>Recurrentes</a>
       <a href="{% url 'movimientos' %}" class="{% if u == 'movimientos' %}on{% endif %}"><svg class="ic"><use href="#i-list"/></svg>Movimientos</a>
       <a href="{% url 'upload' %}" class="{% if u == 'upload' %}on{% endif %}"><svg class="ic"><use href="#i-upload"/></svg>Importar</a>
       <a href="{% url 'sync' %}" class="{% if u == 'sync' %}on{% endif %}"><svg class="ic"><use href="#i-sync"/></svg>Sync</a>
