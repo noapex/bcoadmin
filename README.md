@@ -38,6 +38,11 @@ Los patrones de pago de tarjeta (`Tarjeta.patron_pago`) se cargan una vez con `s
 `importar` acepta los PDF mensuales de la cuenta, `movimientos.xlsx` y los
 "Último resumen" de las tarjetas; se pueden repetir sin duplicar movimientos.
 
+También acepta la caja de ahorro de Banco Galicia (fuente `galicia`, cuenta "Galicia CA"):
+los PDF mensuales "Resumen de Cuenta Sueldo" y el `Extracto_<n>.xlsx` (hoja "Cuentas").
+Ninguno trae número de comprobante, así que se usa el saldo posterior a cada movimiento
+como referencia: el PDF y el xlsx del mismo período no se duplican.
+
 Los pagos recurrentes se detectan solos. Los que no interesan se silencian desde
 el admin (acción "Silenciar"); no los borres: un recurrente borrado vuelve a
 aparecer en la próxima importación.

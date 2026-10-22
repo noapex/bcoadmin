@@ -58,7 +58,8 @@ class CategoriaForm(forms.ModelForm):
 
 
 class ReglaForm(forms.ModelForm):
-    FUENTES = [("", "Cualquiera"), ("cuenta", "Cuenta"), ("tarjeta", "Cualquier tarjeta"),
+    FUENTES = [("", "Cualquiera"), ("cuenta", "Cuenta"), ("galicia", "Galicia"),
+               ("tarjeta", "Cualquier tarjeta"),
                ("visa", "Visa"), ("amex", "Amex"), ("master", "Master")]
     MONEDAS = [("", "Cualquiera"), ("ARS", "ARS"), ("USD", "USD")]
     TIPOS = [("", "Sin cambio"), ("ingreso", "Ingreso"), ("gasto", "Gasto"), ("interno", "Interno")]

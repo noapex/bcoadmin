@@ -443,6 +443,12 @@ class FuenteFilterTests(TestCase):
         r = self.client.get("/movimientos/?mes=2026-09&fuente=zzz")
         self.assertEqual(len(r.context["movimientos"]), 2)
 
+    def test_galicia_account(self):
+        mov(2026, 9, 12, "-70", desc="GALICIA", fuente="galicia")
+        r = self.client.get("/movimientos/?mes=2026-09&fuente=galicia")
+        self.assertEqual([d.descripcion for d in r.context["movimientos"]], ["GALICIA"])
+        self.assertEqual(r.context["fuente"], "galicia")
+
 
 class PeriodoClampTests(TestCase):
     def setUp(self):

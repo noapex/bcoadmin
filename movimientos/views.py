@@ -22,7 +22,7 @@ from .services.importer import import_files
 
 MONEDAS = ("ARS", "USD")
 TITULO_MONEDA = {"ARS": "Pesos", "USD": "Dólares"}
-FUENTES = ("cuenta",) + tuple(sorted(CARD_SOURCES))
+FUENTES = ("cuenta", "galicia") + tuple(sorted(CARD_SOURCES))
 MES_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 ANIO_MIN, ANIO_MAX = 2000, 2100
 MAX_MESES = 60
