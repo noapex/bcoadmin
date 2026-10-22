@@ -679,3 +679,15 @@ class MovimientosNavegacionMesTests(TestCase):
     def test_no_next_after_last_month_with_data(self):
         r = self.client.get("/movimientos/?mes=2026-09")
         self.assertIsNone(r.context["mes_siguiente"])
+
+
+class MovimientosOrdenTests(TestCase):
+    def test_cells_carry_raw_sort_values(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        Detalle.objects.create(codigo="1", fecha=datetime(2026, 9, 26, 10, 30), cuenta="c", descripcion="a",
+                               monto=Decimal("-1234567.50"), moneda="ARS", tipo="gasto")
+        r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertContains(r, 'data-fecha="20260926103000"')
+        self.assertContains(r, 'data-monto="-1234567.50"')
+        self.assertContains(r, 'sorter: "monto-raw"')
+        self.assertContains(r, 'sorter: "fecha-raw"')

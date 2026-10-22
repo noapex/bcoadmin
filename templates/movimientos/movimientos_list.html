@@ -54,7 +54,7 @@
   <tbody>
   {% for d in movimientos %}
     <tr>
-      <td class="num" style="white-space:nowrap">{{ d.fecha|date:"d/m/Y" }}</td>
+      <td class="num" style="white-space:nowrap" data-fecha="{{ d.fecha|date:'YmdHis' }}">{{ d.fecha|date:"d/m/Y" }}</td>
       <td>{{ d.fuente }}</td>
       <td class="desc-cell">{{ d.descripcion }}</td>
       <td class="num">{{ d.cuota }}</td>
@@ -94,7 +94,16 @@
       $(".parcial-n").text(n);
     }
 
+    // Sort on the raw values carried by the cells: es-AR text ("1.234,56", "26/09/2026") does not sort right.
+    function porAtributo(id, attr) {
+      $.tablesorter.addParser({id: id, is: function () { return false; }, type: "numeric",
+        format: function (s, table, cell) { return parseFloat(cell.getAttribute(attr)) || 0; }});
+    }
+    porAtributo("monto-raw", "data-monto");
+    porAtributo("fecha-raw", "data-fecha");
+
     $tabla.tablesorter({theme: "app", widthFixed: false, widgets: ["filter"],
+      headers: {0: {sorter: "fecha-raw"}, 4: {sorter: "monto-raw"}},
       widgetOptions: {filter_placeholder: {search: "Filtrar…"}}})
       .on("filterEnd", actualizarParcial);
   });
