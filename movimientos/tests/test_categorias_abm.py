@@ -217,3 +217,47 @@ class ReclasificacionFallidaTests(AbmBase):
         self.assertEqual(regla.patron, "coto")
         self.assert_error(self.post("regla_borrar", None, regla.pk))
         self.assertTrue(Regla.objects.filter(pk=regla.pk).exists())
+
+
+class SugiereRecurrentesTests(AbmBase):
+    def test_checkbox_saves_flag_and_list_shows_it(self):
+        r = self.post("categoria_editar", {"name": "Auto", "parent": ""}, self.auto.pk)
+        self.assertRedirects(r, reverse("categorias_gestionar"))
+        self.auto.refresh_from_db()
+        self.assertFalse(self.auto.sugiere_recurrentes)  # unticked checkbox
+        self.assertContains(r, "sin recurrentes", count=1)
+        self.post("categoria_editar", {"name": "Auto", "parent": "", "sugiere_recurrentes": "on"}, self.auto.pk)
+        self.auto.refresh_from_db()
+        self.assertTrue(self.auto.sugiere_recurrentes)
+        form = self.client.get(reverse("categoria_editar", args=[self.auto.pk]))
+        self.assertContains(form, "Puede tener recurrentes")
+
+    def test_unticking_removes_suggestion(self):
+        from movimientos.models import Recurrente
+        from movimientos.services.recurring import detectar_recurrentes
+        Regla.objects.create(patron="edesur", categoria=self.luz)
+        for m in (5, 6, 7, 8, 9):
+            Detalle.objects.create(codigo="", fecha=datetime(2026, m, 17), cuenta="c", descripcion="EDESUR",
+                                   monto=Decimal("-100"), tipo="gasto")
+        self.post("categoria_editar", {"name": "Luz", "parent": self.servicios.pk,
+                                       "sugiere_recurrentes": "on"}, self.luz.pk)
+        self.assertEqual(Recurrente.objects.count(), 1)
+        # Unticking the parent removes the suggestion of a movement in a child category.
+        self.post("categoria_editar", {"name": "Servicios", "parent": ""}, self.servicios.pk)
+        self.assertEqual(Recurrente.objects.count(), 0)
+        self.assertEqual(detectar_recurrentes(), 0)
+
+
+class MigracionCategoriasTests(TestCase):
+    def test_data_migration_unflags_names_case_insensitive(self):
+        import importlib
+        from django.apps import apps
+        mig = importlib.import_module("movimientos.migrations.0012_categorias_sin_recurrentes")
+        nombres = ["IMPUESTOS", "Compras con débito", "extracciones", "Transf", "Movimientos internos",
+                   "Pagos de tarjeta", "Tarjeta sin detalle", "Servicios", "Transferencias"]
+        for n in nombres:
+            Categoria.objects.create(name=n)
+        mig.desmarcar_categorias(apps, None)
+        self.assertEqual(sorted(Categoria.objects.filter(sugiere_recurrentes=True).values_list("name", flat=True)),
+                         ["Servicios", "Transferencias"])
+        self.assertEqual(Categoria.objects.count(), len(nombres))

@@ -30,8 +30,11 @@ class FileFieldForm(forms.Form):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ["name", "parent"]
+        fields = ["name", "parent", "sugiere_recurrentes"]
         labels = {"name": "Nombre", "parent": "Categoría padre"}
+        help_texts = {"sugiere_recurrentes": "Desmarcalo para impuestos, transferencias o compras sueltas: "
+                                             "sus movimientos (y los de sus subcategorías) no se sugieren "
+                                             "como pagos recurrentes."}
         error_messages = {"name": {"unique": "Ya existe una categoría con ese nombre."}}
 
     def __init__(self, *args, **kwargs):

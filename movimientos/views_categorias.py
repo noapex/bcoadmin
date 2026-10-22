@@ -11,13 +11,14 @@ from django.views.decorators.http import require_POST
 from .forms import CategoriaForm, ReglaForm
 from .models import Categoria, Detalle, Regla
 from .services.classify import CATEGORIAS_RESERVADAS, clasificar_todo
+from .services.recurring import detectar_recurrentes
 
 
 logger = logging.getLogger(__name__)
 
 
 def _aplicar(request, cambio, hecho):
-    """Run `cambio()` and the reclassification in one transaction, flash the outcome, back to the list.
+    """Run `cambio()`, the reclassification and recurring detection in one transaction, flash the outcome.
 
     `cambio` may return an extra sentence (or None) for the success message. Any failure rolls both back.
     """
@@ -25,6 +26,8 @@ def _aplicar(request, cambio, hecho):
         with transaction.atomic():
             extra = cambio()
             n = clasificar_todo()
+            # Categories decide which movements may suggest recurring items.
+            detectar_recurrentes()
     except Exception:
         logger.exception("Category/rule change rolled back")
         messages.error(request, "Falló la reclasificación de movimientos. No se aplicó ningún cambio.")
