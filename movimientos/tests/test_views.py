@@ -617,3 +617,33 @@ class DashboardPendientesKpiTests(TestCase):
         self.assertEqual((r.context["kpis"]["faltan"], r.context["kpis"]["pendientes"]), (0, 1))
         self.assertContains(r, "1 por vencer")
         self.assertNotContains(r, "al día")
+
+
+class InternosToggleTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        for d, monto, tipo in [(1, "1000", "ingreso"), (2, "-300", "gasto"), (3, "500", "interno")]:
+            Detalle.objects.create(codigo="1", fecha=datetime(2026, 9, d), cuenta="c", descripcion=f"m{d}",
+                                   monto=Decimal(monto), moneda="ARS", tipo=tipo)
+
+    def test_dashboard_toggle(self):
+        r = self.client.get("/")
+        self.assertEqual(r.context["kpis"]["balance"], Decimal("700"))
+        self.assertFalse(r.context["internos"])
+        self.assertContains(r, "Con internos")
+        r = self.client.get("/?internos=1")
+        self.assertEqual((r.context["kpis"]["ingresos"], r.context["kpis"]["balance"]), (Decimal("1500"), Decimal("1200")))
+        self.assertContains(r, "&internos=1")  # links keep the toggle
+
+    def test_movimientos_hide_internos_by_default(self):
+        r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertEqual(sorted(m.descripcion for m in r.context["movimientos"]), ["m1", "m2"])
+        self.assertEqual(r.context["total"], Decimal("700"))
+        self.assertContains(r, "Con internos")
+        r = self.client.get("/movimientos/?mes=2026-09&internos=1")
+        self.assertEqual(len(r.context["movimientos"]), 3)
+        self.assertContains(r, 'type="hidden" name="internos" value="1"')
+
+    def test_movimientos_tipo_interno_shows_them(self):
+        r = self.client.get("/movimientos/?mes=2026-09&tipo=interno")
+        self.assertEqual([m.descripcion for m in r.context["movimientos"]], ["m3"])

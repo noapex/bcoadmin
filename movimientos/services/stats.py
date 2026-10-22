@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
-from django.db.models import Max, Sum
+from django.db.models import Max, Q, Sum
 from django.db.models.functions import TruncMonth
 
 from movimientos.models import Categoria, Detalle, Tarjeta
@@ -35,20 +35,34 @@ def month_range(desde, hasta):
     return out
 
 
-def _base(moneda, desde, hasta):
+def _base(moneda, desde, hasta, incluir_internos=False):
     y, m = _parse(desde)
     y2, m2 = _parse(hasta)
     end = datetime(y2 + 1, 1, 1) if m2 == 12 else datetime(y2, m2 + 1, 1)
-    return (Detalle.objects.filter(activo=True, moneda=moneda, fecha__gte=datetime(y, m, 1), fecha__lt=end)
-            .exclude(tipo="interno"))
+    qs = Detalle.objects.filter(activo=True, moneda=moneda, fecha__gte=datetime(y, m, 1), fecha__lt=end)
+    return qs if incluir_internos else qs.exclude(tipo="interno")
 
 
-def monthly_totals(moneda, desde, hasta):
-    rows = (_base(moneda, desde, hasta).annotate(m=TruncMonth("fecha"))
+def monthly_totals(moneda, desde, hasta, incluir_internos=False):
+    """Per-month ingresos/gastos/balance. With `incluir_internos`, internal movements count by sign
+    (inflows as ingresos, outflows as gastos)."""
+    rows = (_base(moneda, desde, hasta, incluir_internos).annotate(m=TruncMonth("fecha"))
             .values("m", "tipo").annotate(s=Sum("monto")))
     acc = defaultdict(lambda: {"ingreso": Decimal(0), "gasto": Decimal(0)})
     for r in rows:
-        acc[r["m"].strftime("%Y-%m")][r["tipo"]] += _q(r["s"])
+        tipo = r["tipo"]
+        if tipo == "interno":
+            # Sum per month and tipo mixes signs; split them with a dedicated query below.
+            continue
+        acc[r["m"].strftime("%Y-%m")][tipo] += _q(r["s"])
+    if incluir_internos:
+        internos = (_base(moneda, desde, hasta, True).filter(tipo="interno").annotate(m=TruncMonth("fecha"))
+                    .values("m").annotate(entra=Sum("monto", filter=Q(monto__gt=0)),
+                                          sale=Sum("monto", filter=Q(monto__lt=0))))
+        for r in internos:
+            mes = r["m"].strftime("%Y-%m")
+            acc[mes]["ingreso"] += _q(r["entra"])
+            acc[mes]["gasto"] += _q(r["sale"])
     out = []
     for mes in month_range(desde, hasta):
         ing = acc[mes]["ingreso"].quantize(CENT)

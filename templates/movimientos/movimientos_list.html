@@ -20,6 +20,10 @@
     <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}{% endif %}{% if filtros_qs %}&{{ filtros_qs }}{% endif %}">Pesos</a>
     <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}{% endif %}{% if filtros_qs %}&{{ filtros_qs }}{% endif %}">Dólares</a>
   </div>
+  <div class="seg" role="group" aria-label="Movimientos internos" title="Transferencias propias, pagos de tarjeta, compra de dólares…">
+    <a class="{% if not internos %}on{% endif %}" href="?{{ internos_off }}">Sin internos</a>
+    <a class="{% if internos %}on{% endif %}" href="?{{ internos_on }}">Con internos</a>
+  </div>
   <form method="get" class="periodo">
     <input type="hidden" name="moneda" value="{{ moneda }}">
     {% for name, value in filtros %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}

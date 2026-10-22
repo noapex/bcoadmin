@@ -15,11 +15,16 @@
 
 <div class="toolbar">
   <div class="seg" role="group" aria-label="Moneda">
-    <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Pesos</a>
-    <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}">Dólares</a>
+    <a class="{% if moneda == 'ARS' %}on{% endif %}" href="?moneda=ARS{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}{% if internos %}&internos=1{% endif %}">Pesos</a>
+    <a class="{% if moneda == 'USD' %}on{% endif %}" href="?moneda=USD{% if desde %}&desde={{ desde }}&hasta={{ hasta }}&mes={{ mes }}{% endif %}{% if internos %}&internos=1{% endif %}">Dólares</a>
+  </div>
+  <div class="seg" role="group" aria-label="Movimientos internos" title="Transferencias propias, pagos de tarjeta, compra de dólares…">
+    <a class="{% if not internos %}on{% endif %}" href="?{{ internos_off }}">Sin internos</a>
+    <a class="{% if internos %}on{% endif %}" href="?{{ internos_on }}">Con internos</a>
   </div>
   <form method="get" class="periodo">
     <input type="hidden" name="moneda" value="{{ moneda }}">
+    {% if internos %}<input type="hidden" name="internos" value="1">{% endif %}
     <label class="field"><span>Desde</span><input type="month" name="desde" value="{{ desde }}"></label>
     <label class="field"><span>Hasta</span><input type="month" name="hasta" value="{{ hasta }}"></label>
     <label class="field"><span>Mes</span><input type="month" name="mes" value="{{ mes }}"></label>
@@ -28,12 +33,12 @@
 </div>
 
 <div class="kpis">
-  <a class="card kpi k-pos" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso">
+  <a class="card kpi k-pos" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=ingreso{% if internos %}&internos=1{% endif %}">
     <span class="kpi-head"><span class="kpi-label">Ingresos · {{ mes }}</span><span class="kpi-icon pos"><svg class="ic"><use href="#i-up"/></svg></span></span>
     <b class="kpi-value pos">$ {{ kpis.ingresos|floatformat:"2g" }}</b>
     <span class="kpi-foot">Ver movimientos</span>
   </a>
-  <a class="card kpi k-neg" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">
+  <a class="card kpi k-neg" href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto{% if internos %}&internos=1{% endif %}">
     <span class="kpi-head"><span class="kpi-label">Gastos · {{ mes }}</span><span class="kpi-icon neg"><svg class="ic"><use href="#i-down"/></svg></span></span>
     <b class="kpi-value neg">$ {{ kpis.gastos|floatformat:"2g" }}</b>
     <span class="kpi-foot">Ver movimientos</span>

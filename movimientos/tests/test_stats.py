@@ -241,3 +241,15 @@ class IngresosPorCategoriaTests(TestCase):
         self.assertEqual(filas["Cinconueves"]["total"], Decimal("2110004.00"))
         self.assertEqual(filas["Sin categoría"]["total"], Decimal("100.00"))
         self.assertEqual(res["total"]["total"], Decimal("2110104.00"))
+
+
+class MonthlyTotalsInternosTests(TestCase):
+    def test_internos_excluded_by_default_and_included_on_request(self):
+        mov(2026, 9, 1, "1000", tipo="ingreso")
+        mov(2026, 9, 2, "-300")
+        mov(2026, 9, 3, "500", tipo="interno")   # own transfer in
+        mov(2026, 9, 4, "-200", tipo="interno")  # own transfer out
+        base = monthly_totals("ARS", "2026-09", "2026-09")[0]
+        self.assertEqual((base["ingresos"], base["gastos"], base["balance"]), (Decimal("1000"), Decimal("300"), Decimal("700")))
+        con = monthly_totals("ARS", "2026-09", "2026-09", incluir_internos=True)[0]
+        self.assertEqual((con["ingresos"], con["gastos"], con["balance"]), (Decimal("1500"), Decimal("500"), Decimal("1000")))

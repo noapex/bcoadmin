@@ -103,6 +103,14 @@ def _recurrentes(moneda, refs=None):
     return items
 
 
+def _toggle_internos(request):
+    """Query strings for the "Sin internos | Con internos" switch, keeping every other GET param."""
+    sin, con = request.GET.copy(), request.GET.copy()
+    sin.pop("internos", None)
+    con["internos"] = "1"
+    return {"internos_off": sin.urlencode(), "internos_on": con.urlencode()}
+
+
 def _total_mensual(items):
     """Monthly-equivalent cost of monitored items per currency (monto_ref / frecuencia), skipping inactive ones."""
     total = {m: Decimal(0) for m in MONEDAS}
@@ -125,7 +133,8 @@ def dashboard(request):
     if not desde <= mes <= hasta:
         mes = hasta
 
-    totales = stats.monthly_totals(moneda, desde, hasta)
+    internos = request.GET.get("internos") == "1"
+    totales = stats.monthly_totals(moneda, desde, hasta, incluir_internos=internos)
     actual = next(t for t in totales if t["mes"] == mes)
     # Recurring payments are a "did I pay everything?" check: show both currencies regardless of the toggle.
     refs, recs = {}, []
@@ -149,6 +158,7 @@ def dashboard(request):
     }
     ctx.update({
         "desde": desde, "hasta": hasta, "mes": mes,
+        "internos": internos, **_toggle_internos(request),
         "kpis": {"ingresos": actual["ingresos"], "gastos": actual["gastos"],
                  "balance": actual["balance"],
                  "faltan": sum(1 for r in recs if r["estado"] == "falta"),
@@ -255,6 +265,10 @@ def movimientos_list(request):
     tipo = request.GET.get("tipo", "")
     if tipo in ("ingreso", "gasto", "interno"):
         qs = qs.filter(tipo=tipo)
+    # Internal movements (own transfers, card payments…) are hidden unless asked for.
+    internos = request.GET.get("internos") == "1"
+    if not internos and tipo != "interno":
+        qs = qs.exclude(tipo="interno")
     fuente = request.GET.get("fuente", "")
     if fuente in FUENTES:
         qs = qs.filter(fuente=fuente)
@@ -273,13 +287,15 @@ def movimientos_list(request):
     total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
     # Non-period filters, carried by the period form and the currency toggle.
     filtros = [(k, v) for k, v in [("categoria", categoria), ("tipo", tipo), ("fuente", fuente),
-                                   ("tarjeta", tarjeta), ("recurrente", recurrente)] if v]
+                                   ("tarjeta", tarjeta), ("recurrente", recurrente),
+                                   ("internos", "1" if internos else "")] if v]
     return render(request, "movimientos/movimientos_list.html", {
         "movimientos": qs, "total": total, "moneda": moneda, "desde": desde, "hasta": hasta,
         "categoria": categoria, "tipo": tipo, "recurrente": recurrente, "fuente": fuente,
         "tarjeta": tarjeta,
         "categoria_obj": cat, "recurrente_obj": rec,
         "filtros": filtros, "filtros_qs": urlencode(filtros),
+        "internos": internos, **_toggle_internos(request),
     })
 
 
