@@ -81,3 +81,74 @@ def make_account_xlsx(tmpdir, rows=None, moneda="Pesos") -> Path:
     path = Path(tmpdir) / "movimientos.xlsx"
     wb.save(path)
     return path
+
+
+# Galicia "Resumen de Cuenta Sueldo" PDF as extracted text lines (made-up data). Running balance:
+# 1.000.000,00 -6.000 +500.000,50 -50.000 -50.000 +1.000 = 1.395.000,50.
+GALICIA_PDF_LINES = [
+    "Resumen de Cuenta Sueldo",
+    "JUAN PEREZ CUIT del Responsable Impositivo : 20-00000000-1",
+    "Datos de la cuenta Período de movimientos Saldos",
+    "Tipo de cuenta",
+    "Cuenta Sueldo",
+    "$1.000.000,00",
+    "Número de cuenta",
+    "N° 1234567-8 999-1",
+    "$1.395.000,50",
+    "CBU 28/08/2026 25/09/2026",
+    "0070999130001234567812",
+    "Disponés de 30 días desde la recepción para cuestionar este resumen.",
+    "Movimientos",
+    "Fecha Descripción Origen Crédito Débito Saldo",
+    "31/08/26 TRANSFERENCIA A TERCEROS -6.000,00 994.000,00",
+    "Persona Ejemplo",
+    "20000000001",
+    "VARIOS",
+    "31/08/26 ACREDITAMIENTO DE HABERES 500.000,50 1.494.000,50",
+    "EMPRESA EJEMPLO",
+    "Resumen de Cuenta Sueldo Página 1 / 2",
+    "20260925000000000P",
+    "Resumen de Cuenta Sueldo",
+    "Fecha Descripción Origen Crédito Débito Saldo",
+    "ACRED.HABERES",
+    "11/09/26 TRANSF. CTAS PROPIAS -50.000,00 1.444.000,50",
+    "JUAN PEREZ",
+    "11/09/26 TRANSF. CTAS PROPIAS -50.000,00 1.394.000,50",
+    "JUAN PEREZ",
+    "16/09/26 INTERES CAPITALIZADO 1.000,00 1.395.000,50",
+    "Septiembre 2026",
+    "Total $ 501.000,50 -$ 106.000,00 $ 1.395.000,50",
+    "Los depósitos en pesos y en moneda extranjera cuentan con la garantía de hasta $25.000.000.",
+    "Canales de atención",
+    "Banco de Galicia y Buenos Aires S.A.U.",
+    "Resumen de Cuenta Sueldo Página 2 / 2",
+    "20260925000000000P",
+]
+
+# The same movements as the Galicia xlsx lists them: newest first, multi-line text, balances
+# without thousands separators.
+GALICIA_XLSX_ROWS = [
+    ["16/09/2026", " INTERES CAPITALIZADO\n Septiembre 2026\n", "0,00", "1.000,00", "1395000,50", None],
+    ["11/09/2026", " TRANSF. CTAS PROPIAS\n JUAN  PEREZ\n", "-50.000,00", "0,00", "1394000,50", None],
+    ["11/09/2026", " TRANSF. CTAS PROPIAS\n JUAN PEREZ\n", "-50.000,00", "0,00", "1444000,50", None],
+    ["31/08/2026", " ACREDITAMIENTO DE HABERES\n EMPRESA EJEMPLO S.A.\n ACRED.HABERES\n", "0,00", "500.000,50",
+     "1494000,50", None],
+    ["31/08/2026", " TRANSFERENCIA A TERCEROS\n Persona Ejemplo\n 20000000001\n VARIOS\n", "-6.000,00", "0,00",
+     "994000,00", None],
+]
+GALICIA_XLSX_HEADER = ["Fecha", "Movimiento", "Débito", "Crédito", "Saldo Parcial", "Comentarios"]
+
+
+def make_galicia_xlsx(tmpdir, rows=None, moneda="Pesos") -> Path:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cuentas"
+    for r in ([f"Banco Galicia - Caja Ahorro {moneda}"], ["Nro. de Cuenta: ...9999991"],
+              ["Fecha Actual: 22/10/2026"], ["Hora Actual: 00:49"],
+              ["Intervalo de Consulta: del 22/08/2026 al 23/10/2026"], GALICIA_XLSX_HEADER):
+        ws.append(r)
+    for r in (GALICIA_XLSX_ROWS if rows is None else rows):
+        ws.append(list(r))
+    path = Path(tmpdir) / "Extracto_00000000000.xlsx"
+    wb.save(path)
+    return path

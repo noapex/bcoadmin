@@ -5,14 +5,16 @@ Per-PDF parsing consistency lives in test_account_pdf.RealAccountPdfTests.
 """
 import os
 import tempfile
+from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 from unittest import skipUnless
 
 from django.test import TestCase, override_settings
 
+from movimientos import parsers
 from movimientos.models import Detalle, Resumen
-from movimientos.parsers import account_pdf, card_xlsx
+from movimientos.parsers import account_pdf, card_xlsx, galicia_pdf, galicia_xlsx
 from movimientos.services.importer import import_files
 
 SAMPLES = os.environ.get("BCOADMIN_SAMPLES_DIR")
@@ -108,3 +110,48 @@ class RealImportTests(TestCase):
 
     def test_visa_cycle_pdf_then_xlsx(self):
         self._assert_visa_cycle_not_duplicated(pdf_first=True)
+
+
+def _galicia_pdfs():
+    return [p for p in _samples(PDF_GLOB) if galicia_pdf.matches(p)]
+
+
+def _galicia_xlsxs():
+    return [p for p in _samples("*.xlsx") if galicia_xlsx.matches(p)]
+
+
+@skipUnless(SAMPLES, "BCOADMIN_SAMPLES_DIR not set")
+class RealGaliciaTests(TestCase):
+    def setUp(self):
+        media = tempfile.TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        override = override_settings(MEDIA_ROOT=media.name)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def test_parsers_reconcile(self):
+        pdfs, xlsxs = _galicia_pdfs(), _galicia_xlsxs()
+        self.assertTrue(pdfs and xlsxs)
+        for path in pdfs + xlsxs:
+            with self.subTest(path=path.name):
+                res = parsers.parse(path)
+                self.assertIn(res.formato, ("galicia_pdf", "galicia_xlsx"))
+                # PDFs also check every movement against their printed "Total" line.
+                self.assertEqual(res.errores, [])
+                self.assertTrue(res.movimientos)
+
+    def _import(self, paths):
+        reports = import_files(paths)
+        self.assertEqual([(r.archivo, r.errores) for r in reports if r.rechazado or r.errores], [])
+        rows = Detalle.objects.filter(fuente="galicia")
+        keys = Counter((r.fecha.date(), r.monto, r.codigo) for r in rows)
+        self.assertEqual([k for k, n in keys.items() if n > 1], [])
+        return rows.count()
+
+    def test_import_order_does_not_matter(self):
+        pdfs, xlsxs = _galicia_pdfs(), _galicia_xlsxs()
+        # Every distinct (amount, balance after) pair is one movement, whichever file lists it.
+        distinct = {(m.monto, m.codigo) for p in pdfs + xlsxs for m in parsers.parse(p).movimientos}
+        self.assertEqual(self._import(pdfs + xlsxs), len(distinct))
+        Detalle.objects.all().delete()
+        self.assertEqual(self._import(xlsxs + pdfs), len(distinct))
