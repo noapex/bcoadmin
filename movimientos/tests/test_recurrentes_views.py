@@ -10,7 +10,8 @@ from movimientos.models import Detalle, Recurrente
 
 def rec(nombre, estado="sugerido", moneda="ARS", **kw):
     kw.setdefault("ultima_fecha", date(2026, 8, 1))
-    return Recurrente.objects.create(nombre=nombre, clave=nombre.lower(), moneda=moneda, fuente="cuenta",
+    kw.setdefault("fuente", "cuenta")
+    return Recurrente.objects.create(nombre=nombre, clave=nombre.lower(), moneda=moneda,
                                      dia_habitual=1, monto_ref=Decimal("1234.5"), estado_admin=estado, **kw)
 
 
@@ -127,3 +128,26 @@ class AdminManualConfirmedTests(TestCase):
         self.assertEqual(self.client.post(reverse("admin:movimientos_recurrente_add"), data).status_code, 302)
         r0 = Recurrente.objects.get()
         self.assertEqual((r0.manual, r0.estado_admin), (True, "confirmado"))
+
+
+class QueryCountTests(Base):
+    """Status needs the source's reference date: computed once per source, not per item."""
+
+    def _queries(self, url, n):
+        Recurrente.objects.all().delete()
+        for i in range(n):
+            # falta: past the tolerance window, so estado() needs no movement history
+            rec(f"Mon {i}", "confirmado", fuente="visa" if i % 2 else "cuenta")
+            rec(f"Ign {i}", "silenciado")
+            rec(f"Sug {i}", "sugerido")
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get(url).status_code, 200)
+        return len(ctx)
+
+    def test_recurrentes_page_queries_constant(self):
+        self.assertEqual(self._queries(reverse("recurrentes"), 2), self._queries(reverse("recurrentes"), 12))
+
+    def test_dashboard_queries_constant(self):
+        self.assertEqual(self._queries("/", 2), self._queries("/", 12))

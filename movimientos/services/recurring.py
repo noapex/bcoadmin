@@ -206,14 +206,19 @@ def _fue_atrasado(rec):
     return ultima > esperado + timedelta(days=TOLERANCIA_DIAS)
 
 
-def estado(rec, ref=None):
+_SIN_REF = object()
+
+
+def estado(rec, ref=_SIN_REF):
     """pagado | pendiente | falta | inactivo | atrasado | silenciado, judged against the source's last import.
 
     inactivo: missed for two or more expected periods (likely cancelled).
+    `ref` defaults to fecha_referencia(rec.fuente); pass it (even None) to skip that lookup.
     """
     if rec.estado_admin == "silenciado":
         return "silenciado"
-    ref = ref or fecha_referencia(rec.fuente)
+    if ref is _SIN_REF:
+        ref = fecha_referencia(rec.fuente)
     if rec.ultima_fecha is None or ref is None:
         return "pendiente"
     u = rec.ultima_fecha

@@ -82,16 +82,23 @@ ACCIONES_RECURRENTE = {
 }
 
 
-def _con_estado(rec):
-    est = recurring.estado(rec)
-    return {"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, ""),
-            "etiqueta": ESTADO_ETIQUETA.get(est, est),
-            "frecuencia": FRECUENCIA_ETIQUETA.get(rec.frecuencia_meses, f"cada {rec.frecuencia_meses} meses")}
+def _frecuencia(rec):
+    return FRECUENCIA_ETIQUETA.get(rec.frecuencia_meses, f"cada {rec.frecuencia_meses} meses")
 
 
-def _recurrentes(moneda):
-    """Monitored (confirmado) items of a currency, sorted by urgency."""
-    items = [_con_estado(rec) for rec in Recurrente.objects.filter(moneda=moneda, estado_admin="confirmado")]
+def _recurrentes(moneda, refs=None):
+    """Monitored (confirmado) items of a currency with their status, sorted by urgency.
+
+    `refs` caches each source's reference date across calls (one lookup per source, not per item).
+    """
+    refs = {} if refs is None else refs
+    items = []
+    for rec in Recurrente.objects.filter(moneda=moneda, estado_admin="confirmado"):
+        if rec.fuente not in refs:
+            refs[rec.fuente] = recurring.fecha_referencia(rec.fuente)
+        est = recurring.estado(rec, ref=refs[rec.fuente])
+        items.append({"rec": rec, "estado": est, "icono": ESTADO_ICONO.get(est, ""),
+                      "etiqueta": ESTADO_ETIQUETA.get(est, est), "frecuencia": _frecuencia(rec)})
     items.sort(key=lambda i: (ESTADO_ORDEN.get(i["estado"], 9), i["rec"].nombre))
     return items
 
@@ -140,11 +147,12 @@ def dashboard(request):
 
 def recurrentes(request):
     sugeridos = Recurrente.objects.filter(estado_admin="sugerido").order_by("-puntaje", "nombre", "pk")
-    monitoreados = []
+    monitoreados, refs = [], {}
     for moneda in MONEDAS:
-        monitoreados += _recurrentes(moneda)
+        monitoreados += _recurrentes(moneda, refs)
     return render(request, "movimientos/recurrentes.html", {
-        "sugeridos": [_con_estado(rec) for rec in sugeridos],
+        # Suggestions show no status: no estado() needed.
+        "sugeridos": [{"rec": rec, "frecuencia": _frecuencia(rec)} for rec in sugeridos],
         "monitoreados": monitoreados,
         "ignorados": Recurrente.objects.filter(estado_admin="silenciado").order_by("nombre", "pk"),
     })
