@@ -17,7 +17,8 @@ FUENTE = "galicia"
 CUENTA = "Galicia CA"
 _NUM = r"-?\d{1,3}(?:\.\d{3})*,\d{2}"
 _MOVEMENT = re.compile(rf"^(\d{{2}}/\d{{2}}/\d{{2}}) (.+?) ({_NUM}) ({_NUM})$")
-_TABLE_HEADER = re.compile(r"^Fecha Descripción Origen Crédito Débito Saldo$")
+_TABLE_HEADER_TEXT = "Fecha Descripción Origen Crédito Débito Saldo"
+_TABLE_HEADER = re.compile(rf"^{_TABLE_HEADER_TEXT}$")
 _PAGE_FOOTER = re.compile(r"^Resumen de Cuenta .*Página \d+ / \d+$")
 _BALANCE = re.compile(rf"^(-?)(U\$S|\$) ?({_NUM})$")
 _PERIOD = re.compile(r"(\d{2}/\d{2}/\d{4}) (\d{2}/\d{2}/\d{4})$")
@@ -32,6 +33,7 @@ def codigo_saldo(saldo: Decimal) -> str:
 
 def looks_like(first_page: str, last_page: str) -> bool:
     return "Resumen de Cuenta" in first_page and (
+        "Datos de la cuenta" in first_page or _TABLE_HEADER_TEXT in first_page) and (
         "Galicia" in last_page or re.search(r"^007\d{19}$", first_page, re.M) is not None)
 
 
@@ -81,7 +83,12 @@ def parse_lines(lines) -> ParseResult:
         if _PAGE_FOOTER.match(text):
             in_table = False
             continue
-        if not in_table or not text:
+        if not text:
+            continue
+        if not in_table:
+            # Page headers, footers and legal text live outside the table; a movement there would be lost.
+            if re.match(r"^\d{2}/\d{2}/\d{2} ", text):
+                result.errores.append(f"Movimiento fuera de la tabla: {text!r}")
             continue
         t = _TOTAL.match(text)
         if t:
@@ -104,6 +111,8 @@ def parse_lines(lines) -> ParseResult:
             result.errores.append(f"Movimiento no reconocido: {text!r}")
         elif current is not None:
             details.append(text)
+        else:
+            result.errores.append(f"Texto sin movimiento: {text!r}")
     flush()
 
     if saldo.quantize(_CENT) != final.quantize(_CENT):

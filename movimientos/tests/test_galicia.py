@@ -73,6 +73,20 @@ class GaliciaPdfLinesTests(SimpleTestCase):
     def test_looks_like(self):
         self.assertTrue(galicia_pdf.looks_like("\n".join(LINES[:12]), "\n".join(LINES[-5:])))
         self.assertFalse(galicia_pdf.looks_like("Mi resumen de cuenta\nSantander", "Santander"))
+        # A Galicia statement without the account block / movements table (e.g. a card) is not this format.
+        self.assertFalse(galicia_pdf.looks_like("Resumen de Cuenta Visa\nBanco de Galicia", "Banco de Galicia"))
+
+    def test_orphan_detail_text_is_reported(self):
+        i = LINES.index("31/08/26 TRANSFERENCIA A TERCEROS -6.000,00 994.000,00")
+        res = galicia_pdf.parse_lines(LINES[:i] + ["TEXTO HUERFANO"] + LINES[i:])
+        self.assertEqual(len(res.movimientos), 5)
+        self.assertTrue(any("TEXTO HUERFANO" in e for e in res.errores), res.errores)
+
+    def test_movement_outside_table_is_reported(self):
+        i = LINES.index("Resumen de Cuenta Sueldo Página 1 / 2")
+        res = galicia_pdf.parse_lines(LINES[:i + 1] + ["05/09/26 PERDIDO -1,00 1.494.000,49"] + LINES[i + 1:])
+        self.assertEqual(len(res.movimientos), 5)
+        self.assertTrue(any("05/09/26 PERDIDO" in e for e in res.errores), res.errores)
 
 
 class GaliciaXlsxTests(SimpleTestCase):
@@ -106,6 +120,15 @@ class GaliciaXlsxTests(SimpleTestCase):
         res = galicia_xlsx.parse(factories.make_galicia_xlsx(self.tmp.name, rows=rows))
         self.assertEqual(len(res.movimientos), 5)
         self.assertTrue(any("saldo" in e.lower() for e in res.errores), res.errores)
+
+    def test_row_without_date_is_reported_blank_row_skipped(self):
+        rows = [list(r) for r in factories.GALICIA_XLSX_ROWS]
+        rows.insert(1, [None] * 6)
+        rows.insert(1, [None, " PERDIDO\n", "-1,00", "0,00", "1395000,50", None])
+        res = galicia_xlsx.parse(factories.make_galicia_xlsx(self.tmp.name, rows=rows))
+        self.assertEqual(len(res.movimientos), 5)
+        self.assertEqual([e for e in res.errores if e.startswith("Fila sin fecha")],
+                         ["Fila sin fecha: 'PERDIDO' -1,00 0,00 1395000,50"])
 
     def test_dollars_and_unknown_currency(self):
         res = galicia_xlsx.parse(factories.make_galicia_xlsx(self.tmp.name, moneda="Dólares"))

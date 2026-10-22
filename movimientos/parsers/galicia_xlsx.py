@@ -67,6 +67,9 @@ def parse(path) -> ParseResult:
     saldo = None
     for row in reversed(rows[header_idx + 1:]):  # oldest first
         if not _text(row, 0):
+            if any(_text(row, j) for j in range(1, 5)):
+                result.errores.append(f"Fila sin fecha: {_text(row, 1)!r} "
+                                      + " ".join(_text(row, j) for j in range(2, 5)))
             continue
         try:
             debito, credito, nuevo = (parse_amount(row[j]) for j in (2, 3, 4))
