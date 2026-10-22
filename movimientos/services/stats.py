@@ -116,13 +116,23 @@ def _por_mes(meses):
 
 
 def gastos_por_categoria(moneda, desde, hasta):
-    """Monthly spend (positive) per category over the whole Categoria tree.
+    """Monthly spend (positive) per category over the whole Categoria tree. See _por_categoria."""
+    return _por_categoria(moneda, desde, hasta, "gasto")
+
+
+def ingresos_por_categoria(moneda, desde, hasta):
+    """Monthly income (positive) per category over the whole Categoria tree. See _por_categoria."""
+    return _por_categoria(moneda, desde, hasta, "ingreso")
+
+
+def _por_categoria(moneda, desde, hasta, tipo):
+    """Monthly amounts of one `tipo` (shown positive) per category over the whole Categoria tree.
 
     Returns {"meses": [YYYY-MM...],
              "filas": [{"id", "nombre", "nivel", "raiz_id", "tiene_hijos", "valores", "total"}...],
              "total": {"valores", "total"}}.
     `filas` follows tree order and ends with the "Sin categoría" row (id None). Each row's
-    `valores` (aligned with `meses`) includes the category's descendants. Only activo gastos.
+    `valores` (aligned with `meses`) includes the category's descendants. Only activo rows of `tipo`.
     """
     meses = month_range(desde, hasta)
     idx = {m: i for i, m in enumerate(meses)}
@@ -130,10 +140,11 @@ def gastos_por_categoria(moneda, desde, hasta):
                 .values("id", "name", "parent_id", "level", "tree_id", "lft", "rght"))
     parent = {c["id"]: c["parent_id"] for c in cats}
     acc = _por_mes(meses)
-    rows = (_base(moneda, desde, hasta).filter(tipo="gasto").annotate(m=TruncMonth("fecha"))
+    signo = -1 if tipo == "gasto" else 1  # expenses are stored negative
+    rows = (_base(moneda, desde, hasta).filter(tipo=tipo).annotate(m=TruncMonth("fecha"))
             .values("m", "categoria_id").annotate(s=Sum("monto")))
     for r in rows:
-        k, value = idx[r["m"].strftime("%Y-%m")], -_q(r["s"])
+        k, value = idx[r["m"].strftime("%Y-%m")], signo * _q(r["s"])
         cid = r["categoria_id"]
         if cid is None:
             acc[None][k] += value

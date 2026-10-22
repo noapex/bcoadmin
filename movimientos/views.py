@@ -126,8 +126,12 @@ def categorias(request):
     ctx = {"moneda": moneda, "vacio": ultimo is None}
     if ultimo is not None:
         desde, hasta = _periodo(request, ultimo)
+        ingresos = stats.ingresos_por_categoria(moneda, desde, hasta)
+        # Income touches few categories: list only those with income in the period.
+        ingresos["filas"] = [f for f in ingresos["filas"] if f["total"]]
         ctx.update({"desde": desde, "hasta": hasta,
-                    "tabla": _con_celdas(stats.gastos_por_categoria(moneda, desde, hasta))})
+                    "tabla": _con_celdas(stats.gastos_por_categoria(moneda, desde, hasta)),
+                    "tabla_ingresos": _con_celdas(ingresos)})
     return render(request, "movimientos/categorias.html", ctx)
 
 

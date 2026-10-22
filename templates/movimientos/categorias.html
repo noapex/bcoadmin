@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Gastos por categoría</h1>
+    <h1>Categorías</h1>
     <p class="sub">Clic en un importe para ver sus movimientos.</p>
   </div>
   <div class="actions">
@@ -15,43 +15,16 @@
   {% include 'movimientos/_vacio.html' with con_moneda=True %}
 {% else %}
 {% include 'movimientos/_periodo.html' with con_moneda=True %}
-<div class="card table-card">
-<div class="tabla-scroll">
-<table class="t matriz" id="tabla-categorias">
-  <thead>
-    <tr><th>Categoría</th>{% for m in tabla.meses %}<th class="r">{{ m }}</th>{% endfor %}<th class="r total">Total</th></tr>
-  </thead>
-  <tbody>
-  {% for fila in tabla.filas %}
-    <tr class="{% if fila.nivel == 0 %}raiz{% else %}hijo{% endif %}"{% if fila.nivel > 0 %} data-raiz="{{ fila.raiz_id }}" style="display:none"{% endif %}>
-      <td style="padding-left:calc(14px + {% widthratio fila.nivel 1 36 %}px)">
-        {% if fila.tiene_hijos and fila.nivel == 0 %}<a href="#" class="toggle" data-raiz="{{ fila.id }}" title="Mostrar/ocultar subcategorías" aria-expanded="false"><svg class="ic"><use href="#i-chevron"/></svg></a>{% elif fila.nivel == 0 %}<span class="toggle-spacer"></span>{% endif %}
-        {{ fila.nombre }}
-      </td>
-      {% for mes, v in fila.celdas %}
-        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto&categoria={% if fila.id %}{{ fila.id }}{% else %}none{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
-      {% endfor %}
-      <td class="r total"><b>{{ fila.total|floatformat:"2g" }}</b></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-  <tfoot>
-    <tr class="raiz">
-      <td>Total</td>
-      {% for mes, v in tabla.total.celdas %}
-        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo=gasto">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
-      {% endfor %}
-      <td class="r total">{{ tabla.total.total|floatformat:"2g" }}</td>
-    </tr>
-  </tfoot>
-</table>
-</div>
-</div>
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-down"/></svg>Gastos por categoría</h2>
+{% include 'movimientos/_tabla_categorias.html' with tabla=tabla tipo='gasto' tid='tabla-categorias' %}
+
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-up"/></svg>Ingresos por categoría</h2>
+{% include 'movimientos/_tabla_categorias.html' with tabla=tabla_ingresos tipo='ingreso' tid='tabla-ingresos' %}
 <script>
   $(function () {
-    $("#tabla-categorias .toggle").on("click", function (e) {
+    $(".tabla-categorias .toggle").on("click", function (e) {
       e.preventDefault();
-      var rows = $('#tabla-categorias tr.hijo[data-raiz="' + $(this).data("raiz") + '"]');
+      var rows = $(this).closest("table").find('tr.hijo[data-raiz="' + $(this).data("raiz") + '"]');
       var open = rows.first().is(":visible");
       rows.toggle(!open);
       $(this).toggleClass("open", !open).attr("aria-expanded", String(!open));

@@ -6,7 +6,8 @@ from django.test import TestCase
 from movimientos.models import Categoria, Detalle, Tarjeta
 from movimientos.services.classify import CAT_SIN_DETALLE
 from movimientos.services.stats import (
-    category_evolution, gastos_por_categoria, gastos_por_tarjeta, month_range, monthly_totals,
+    category_evolution, gastos_por_categoria, gastos_por_tarjeta, ingresos_por_categoria, month_range,
+    monthly_totals,
     spending_by_category, ultimo_mes_con_datos)
 
 
@@ -224,3 +225,19 @@ class GastosPorTarjetaTests(TestCase):
         res = gastos_por_tarjeta("ARS", "2026-03", "2026-03")
         self.assertEqual(res["filas"], [])
         self.assertEqual(res["total"], {"valores": D("0"), "total": Decimal("0")})
+
+
+class IngresosPorCategoriaTests(TestCase):
+    def test_positive_rollup_only_ingresos(self):
+        root = Categoria.objects.create(name="Cinconueves")
+        ate = Categoria.objects.create(name="ATE", parent=root)
+        mov(2026, 9, 14, "2110004", tipo="ingreso", categoria=ate)
+        mov(2026, 9, 15, "-500", categoria=ate)            # gasto: not an income
+        mov(2026, 9, 16, "100", tipo="ingreso")            # no category
+        mov(2026, 9, 17, "999", tipo="interno", categoria=ate)
+        res = ingresos_por_categoria("ARS", "2026-09", "2026-09")
+        filas = {f["nombre"]: f for f in res["filas"]}
+        self.assertEqual(filas["ATE"]["total"], Decimal("2110004.00"))
+        self.assertEqual(filas["Cinconueves"]["total"], Decimal("2110004.00"))
+        self.assertEqual(filas["Sin categoría"]["total"], Decimal("100.00"))
+        self.assertEqual(res["total"]["total"], Decimal("2110104.00"))

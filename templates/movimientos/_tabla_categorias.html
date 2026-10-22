@@ -1,0 +1,35 @@
+{# Category × month table. Params: tabla, tipo ("gasto" | "ingreso"), tid (table id). #}
+<div class="card table-card">
+<div class="tabla-scroll">
+<table class="t matriz tabla-categorias" id="{{ tid }}">
+  <thead>
+    <tr><th>Categoría</th>{% for m in tabla.meses %}<th class="r">{{ m }}</th>{% endfor %}<th class="r total">Total</th></tr>
+  </thead>
+  <tbody>
+  {% for fila in tabla.filas %}
+    <tr class="{% if fila.nivel == 0 %}raiz{% else %}hijo{% endif %}"{% if fila.nivel > 0 %} data-raiz="{{ fila.raiz_id }}" style="display:none"{% endif %}>
+      <td style="padding-left:calc(14px + {% widthratio fila.nivel 1 36 %}px)">
+        {% if fila.tiene_hijos and fila.nivel == 0 %}<a href="#" class="toggle" data-raiz="{{ fila.id }}" title="Mostrar/ocultar subcategorías" aria-expanded="false"><svg class="ic"><use href="#i-chevron"/></svg></a>{% elif fila.nivel == 0 %}<span class="toggle-spacer"></span>{% endif %}
+        {{ fila.nombre }}
+      </td>
+      {% for mes, v in fila.celdas %}
+        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo={{ tipo }}&categoria={% if fila.id %}{{ fila.id }}{% else %}none{% endif %}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
+      {% endfor %}
+      <td class="r total"><b>{{ fila.total|floatformat:"2g" }}</b></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="99"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>Sin movimientos en este período.</p></td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="raiz">
+      <td>Total</td>
+      {% for mes, v in tabla.total.celdas %}
+        <td class="r">{% if v %}<a href="{% url 'movimientos' %}?moneda={{ moneda }}&mes={{ mes }}&tipo={{ tipo }}">{{ v|floatformat:"2g" }}</a>{% else %}<span class="dash">–</span>{% endif %}</td>
+      {% endfor %}
+      <td class="r total">{{ tabla.total.total|floatformat:"2g" }}</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+</div>

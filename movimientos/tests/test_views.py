@@ -372,6 +372,17 @@ class CategoriasPageTests(TestCase):
         self.assertEqual(r.context["tabla"]["meses"], ["2026-09"])
         self.assertNotContains(r, "1.234,50")
 
+    def test_ingresos_section_lists_only_categories_with_income(self):
+        root = Categoria.objects.create(name="Cinconueves")
+        ate = Categoria.objects.create(name="ATE", parent=root)
+        mov(2026, 9, 14, "2110004", tipo="ingreso", categoria=ate, desc="ASOC TRAB DEL E")
+        r = self.client.get(reverse("categorias"))
+        self.assertContains(r, "Ingresos por categoría")
+        nombres = [f["nombre"] for f in r.context["tabla_ingresos"]["filas"]]
+        self.assertEqual(nombres, ["Cinconueves", "ATE"])
+        self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-09&tipo=ingreso&categoria={ate.pk}")
+        self.assertContains(r, "2.110.004,00")
+
     def test_empty_db(self):
         Detalle.objects.all().delete()
         r = self.client.get(reverse("categorias"))
