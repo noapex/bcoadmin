@@ -187,7 +187,7 @@ class ReclasificacionFallidaTests(AbmBase):
 
     def assert_error(self, r):
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "No se aplicó ningún cambio")
+        self.assertContains(r, "Falló la actualización (clasificación o recurrentes). No se aplicó ningún cambio.")
 
     def test_create_category_rolled_back(self):
         self.assert_error(self.post("categoria_nueva", {"name": "Salud", "parent": ""}))
@@ -261,3 +261,13 @@ class MigracionCategoriasTests(TestCase):
         self.assertEqual(sorted(Categoria.objects.filter(sugiere_recurrentes=True).values_list("name", flat=True)),
                          ["Servicios", "Transferencias"])
         self.assertEqual(Categoria.objects.count(), len(nombres))
+
+
+class DeteccionFallidaTests(AbmBase):
+    def test_detection_failure_rolls_back_with_generic_message(self):
+        with mock.patch("movimientos.views_categorias.detectar_recurrentes", side_effect=RuntimeError("boom")), \
+                self.assertLogs("movimientos.views_categorias", "ERROR"):
+            r = self.post("categoria_nueva", {"name": "Salud", "parent": ""})
+        self.assertContains(r, "Falló la actualización (clasificación o recurrentes). No se aplicó ningún cambio.")
+        self.assertNotContains(r, "reclasificación")
+        self.assertFalse(Categoria.objects.filter(name="Salud").exists())

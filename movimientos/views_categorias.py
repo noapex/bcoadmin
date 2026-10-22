@@ -30,7 +30,7 @@ def _aplicar(request, cambio, hecho):
             detectar_recurrentes()
     except Exception:
         logger.exception("Category/rule change rolled back")
-        messages.error(request, "Falló la reclasificación de movimientos. No se aplicó ningún cambio.")
+        messages.error(request, "Falló la actualización (clasificación o recurrentes). No se aplicó ningún cambio.")
         return redirect("categorias_gestionar")
     messages.success(request, " ".join(filter(None, [f"{hecho}.", extra, f"{n} movimientos actualizados."])))
     return redirect("categorias_gestionar")
