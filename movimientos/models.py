@@ -77,7 +77,7 @@ class Regla(TimeStampedModel):
 
 
 class Recurrente(TimeStampedModel):
-    ESTADOS = [("sugerido", "Sugerido"), ("confirmado", "Confirmado"), ("silenciado", "Silenciado")]
+    ESTADOS = [("sugerido", "Sugerido"), ("confirmado", "Monitoreado"), ("silenciado", "Ignorado")]
 
     nombre = models.CharField(max_length=120)
     clave = models.CharField(max_length=120, blank=True)
@@ -92,6 +92,7 @@ class Recurrente(TimeStampedModel):
     manual = models.BooleanField(default=False)
     nombre_editado = models.BooleanField(default=False)
     parametros_editados = models.BooleanField(default=False)  # owner edited frecuencia/dia/fuente
+    puntaje = models.PositiveSmallIntegerField(default=0)  # 0-100, orders suggestions only
 
     class Meta:
         constraints = [models.UniqueConstraint(
@@ -114,6 +115,8 @@ class Categoria(MPTTModel):
     name = models.CharField(max_length=50, unique=True)
     search_str = models.CharField(max_length=100, null=True, blank=True)
     parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
+    # Effective only if every ancestor also allows it (see recurring.categorias_sin_recurrentes).
+    sugiere_recurrentes = models.BooleanField('Puede tener recurrentes', default=True)
 
     class MPTTMeta:
         order_insertion_by = ['name']

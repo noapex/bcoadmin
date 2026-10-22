@@ -63,8 +63,9 @@ class TarjetaAdmin(_ReclasificaAdmin):
 @admin.register(Recurrente)
 class RecurrenteAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'fuente', 'moneda', 'frecuencia_meses', 'dia_habitual',
-                    'monto_ref', 'ultima_fecha', 'estado_admin', 'estado_actual')
+                    'monto_ref', 'ultima_fecha', 'estado_admin', 'estado_actual', 'puntaje')
     list_filter = ('estado_admin', 'fuente', 'moneda')
+    readonly_fields = ('puntaje',)
     actions = ['confirmar', 'silenciar']
 
     @admin.display(description='Estado actual')
@@ -73,7 +74,9 @@ class RecurrenteAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if not change:
+            # Owner-created items are monitored.
             obj.manual = True
+            obj.estado_admin = 'confirmado'
         else:
             if 'nombre' in form.changed_data:
                 obj.nombre_editado = True
@@ -81,11 +84,11 @@ class RecurrenteAdmin(admin.ModelAdmin):
                 obj.parametros_editados = True
         super().save_model(request, obj, form, change)
 
-    @admin.action(description='Confirmar')
+    @admin.action(description='Monitorear')
     def confirmar(self, request, queryset):
         queryset.update(estado_admin='confirmado')
 
-    @admin.action(description='Silenciar')
+    @admin.action(description='Ignorar')
     def silenciar(self, request, queryset):
         queryset.update(estado_admin='silenciado')
 

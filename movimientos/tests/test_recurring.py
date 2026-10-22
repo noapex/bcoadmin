@@ -224,3 +224,108 @@ class InactivoAndReferenceTests(TestCase):
         self.assertEqual(fecha_referencia("cuenta"), date(2026, 8, 1))
         Resumen.objects.create(fuente="visa", hasta=date(2026, 5, 1))
         self.assertEqual(fecha_referencia("visa"), date(2026, 5, 1))
+
+
+def mensual(comercio, months, day, montos=None, categoria=None, **kw):
+    for i, (y, m) in enumerate(months):
+        d = gasto(comercio, y, m, day, monto=montos[i] if montos else "-1000", **kw)
+        if categoria is not None:
+            Detalle.objects.filter(pk=d.pk).update(categoria=categoria)
+
+
+class SuggestionFilterTests(TestCase):
+    def test_multiple_times_per_month_excluded(self):
+        for y, m in MAY_SEP:
+            gasto("carniceria el toro", y, m, 3)
+            gasto("carniceria el toro", y, m, 18)
+        self.assertEqual(detectar_recurrentes(), 0)
+        self.assertFalse(Recurrente.objects.exists())
+
+    def test_occasional_double_month_still_detected(self):
+        monthly("edesur", MAY_SEP, 17)
+        gasto("edesur", 2026, 7, 28)  # one extra charge: median per month stays 1
+        self.assertEqual(detectar_recurrentes(), 1)
+
+    def test_card_installments_excluded(self):
+        for n, (y, m) in enumerate(MAY_SEP, start=1):
+            d = gasto("grimoldi", y, m, 10, fuente="visa")
+            Detalle.objects.filter(pk=d.pk).update(cuota=f"{n}/6")
+        self.assertEqual(detectar_recurrentes(), 0)
+
+    def test_non_suggesting_category_excluded_including_descendants(self):
+        from movimientos.models import Categoria
+        impuestos = Categoria.objects.create(name="Impuestos", sugiere_recurrentes=False)
+        sellos = Categoria.objects.create(name="Sellos", parent=impuestos)
+        servicios = Categoria.objects.create(name="Servicios")
+        mensual("impuesto de sellos", MAY_SEP, 5, categoria=sellos)
+        mensual("sircreb", MAY_SEP, 6, categoria=impuestos)
+        mensual("edesur", MAY_SEP, 17, categoria=servicios)
+        mensual("sin categoria", MAY_SEP, 9)
+        self.assertEqual(detectar_recurrentes(), 2)
+        self.assertEqual(set(Recurrente.objects.values_list("clave", flat=True)), {"edesur", "sin categoria"})
+
+
+class PuntajeTests(TestCase):
+    def test_automatic_debit_scores_above_pos_purchase(self):
+        mensual("debito automatico seguro auto", MAY_SEP, 13)
+        mensual("compra con tarjeta de debito coto", MAY_SEP, 13)
+        detectar_recurrentes()
+        p = dict(Recurrente.objects.values_list("clave", "puntaje"))
+        # +40 debit +20 stable amount +15 stable day
+        self.assertEqual(p["debito automatico seguro auto"], 75)
+        # -30 POS +20 +15
+        self.assertEqual(p["compra con tarjeta de debito coto"], 5)
+
+    def test_card_subscription_not_penalised_as_pos(self):
+        mensual("merpago spotify", MAY_SEP, 4, fuente="visa")
+        detectar_recurrentes()
+        self.assertEqual(Recurrente.objects.get().puntaje, 60)  # +25 card monthly +20 +15
+
+    def test_unstable_amount_and_day_score_low(self):
+        days = [1, 28, 10, 20, 5]
+        montos = ["-100", "-900", "-300", "-2000", "-50"]
+        for (y, m), d, monto in zip(MAY_SEP, days, montos):
+            gasto("kiosco", y, m, d, monto=monto)
+        detectar_recurrentes()
+        self.assertEqual(Recurrente.objects.get().puntaje, 0)
+
+    def test_score_clamped_to_0_100(self):
+        mensual("pago de servicios debito automatico netflix", MAY_SEP, 4, fuente="visa")
+        for (y, m), d, monto in zip(MAY_SEP, [1, 28, 10, 20, 5], ["-100", "-900", "-300", "-2000", "-50"]):
+            gasto("compra con tarjeta de debito kiosco", y, m, d, monto=monto)
+        detectar_recurrentes()
+        self.assertEqual(dict(Recurrente.objects.values_list("clave", "puntaje")),
+                         {"pago de servicios debito automatico netflix": 100,
+                          "compra con tarjeta de debito kiosco": 0})
+
+
+class StaleSuggestionTests(TestCase):
+    def test_stale_sugerido_deleted_others_kept(self):
+        from movimientos.models import Categoria
+        cat = Categoria.objects.create(name="Gastos varios")
+        for clave in ("borrar", "confirmado", "silenciado", "editado", "params"):
+            mensual(clave, MAY_SEP, 5, categoria=cat)
+        manual = Recurrente.objects.create(nombre="M", clave="manual", moneda="ARS", fuente="cuenta",
+                                           manual=True)
+        detectar_recurrentes()
+        Recurrente.objects.filter(clave="confirmado").update(estado_admin="confirmado")
+        Recurrente.objects.filter(clave="silenciado").update(estado_admin="silenciado")
+        Recurrente.objects.filter(clave="editado").update(nombre="Ed", nombre_editado=True)
+        Recurrente.objects.filter(clave="params").update(parametros_editados=True)
+        Categoria.objects.filter(pk=cat.pk).update(sugiere_recurrentes=False)
+        self.assertEqual(detectar_recurrentes(), 0)
+        self.assertEqual(set(Recurrente.objects.values_list("clave", flat=True)),
+                         {"confirmado", "silenciado", "editado", "params", "manual"})
+        self.assertTrue(Recurrente.objects.filter(pk=manual.pk).exists())
+
+    def test_detection_never_changes_estado_admin(self):
+        mensual("a", MAY_SEP, 5)
+        mensual("b", MAY_SEP, 6)
+        detectar_recurrentes()
+        Recurrente.objects.filter(clave="a").update(estado_admin="confirmado")
+        Recurrente.objects.filter(clave="b").update(estado_admin="silenciado")
+        gasto("a", 2026, 10, 5)
+        gasto("b", 2026, 10, 6)
+        detectar_recurrentes()
+        self.assertEqual(dict(Recurrente.objects.values_list("clave", "estado_admin")),
+                         {"a": "confirmado", "b": "silenciado"})
