@@ -103,6 +103,16 @@ def _recurrentes(moneda, refs=None):
     return items
 
 
+def _total_mensual(items):
+    """Monthly-equivalent cost of monitored items per currency (monto_ref / frecuencia), skipping inactive ones."""
+    total = {m: Decimal(0) for m in MONEDAS}
+    for i in items:
+        rec = i["rec"]
+        if i["estado"] != "inactivo" and rec.monto_ref and rec.moneda in total:
+            total[rec.moneda] += abs(rec.monto_ref) / (rec.frecuencia_meses or 1)
+    return {m: v.quantize(Decimal("0.01")) for m, v in total.items()}
+
+
 def dashboard(request):
     moneda = _moneda(request)
     ultimo = stats.ultimo_mes_con_datos(moneda)
@@ -117,7 +127,11 @@ def dashboard(request):
 
     totales = stats.monthly_totals(moneda, desde, hasta)
     actual = next(t for t in totales if t["mes"] == mes)
-    recs = _recurrentes(moneda)
+    # Recurring payments are a "did I pay everything?" check: show both currencies regardless of the toggle.
+    refs, recs = {}, []
+    for m in MONEDAS:
+        recs += _recurrentes(m, refs)
+    recs.sort(key=lambda i: (ESTADO_ORDEN.get(i["estado"], 9), i["rec"].nombre))
     categorias = stats.spending_by_category(moneda, mes)
     evol = stats.category_evolution(moneda, desde, hasta)
     data = {
@@ -137,8 +151,10 @@ def dashboard(request):
         "desde": desde, "hasta": hasta, "mes": mes,
         "kpis": {"ingresos": actual["ingresos"], "gastos": actual["gastos"],
                  "balance": actual["balance"],
-                 "faltan": sum(1 for r in recs if r["estado"] == "falta")},
+                 "faltan": sum(1 for r in recs if r["estado"] == "falta"),
+                 "pendientes": sum(1 for r in recs if r["estado"] == "pendiente")},
         "recurrentes": recs,
+        "total_recurrentes": _total_mensual(recs),
         "sugerencias": Recurrente.objects.filter(estado_admin="sugerido").count(),
         "data": data,
     })
@@ -154,6 +170,7 @@ def recurrentes(request):
         # Suggestions show no status: no estado() needed.
         "sugeridos": [{"rec": rec, "frecuencia": _frecuencia(rec)} for rec in sugeridos],
         "monitoreados": monitoreados,
+        "total_recurrentes": _total_mensual(monitoreados),
         "ignorados": Recurrente.objects.filter(estado_admin="silenciado").order_by("nombre", "pk"),
     })
 

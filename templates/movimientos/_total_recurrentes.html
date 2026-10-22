@@ -1,0 +1,2 @@
+{# Monthly-equivalent total of monitored recurring payments. Param: total_recurrentes {"ARS": Decimal, "USD": Decimal}. #}
+<span class="rec-total">{% with t=total_recurrentes %}$ {{ t.ARS|floatformat:"2g" }}{% if t.USD %} · U$S {{ t.USD|floatformat:"2g" }}{% endif %} /mes{% endwith %}</span>

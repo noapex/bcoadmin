@@ -250,7 +250,7 @@ class DashboardTests(TestCase):
         r = self.client.get("/?moneda=USD")
         k = r.context["kpis"]
         self.assertEqual((k["ingresos"], k["gastos"], k["balance"]), (Decimal("40"), Decimal("15"), Decimal("25")))
-        self.assertEqual(k["faltan"], 0)
+        self.assertEqual(k["faltan"], 1)  # recurring payments are shown for both currencies
 
     def test_dashboard_empty_db(self):
         Detalle.objects.all().delete()
@@ -558,3 +558,62 @@ class MovimientosParcialTests(TestCase):
         self.assertContains(r, 'data-monto="-1234.50"')
         self.assertContains(r, 'id="parcial"')
         self.assertContains(r, 'id="parcial-fila"')
+
+
+class DashboardRecurrentesAmbasMonedasTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 10, "-100", desc="X")
+        mov(2026, 9, 11, "-5", moneda="USD", desc="Y", fuente="visa")
+        self.ars = Recurrente.objects.create(nombre="Edesur", clave="edesur", moneda="ARS", fuente="cuenta",
+                                             estado_admin="confirmado", monto_ref=Decimal("82212.63"),
+                                             ultima_fecha=date(2026, 7, 28), dia_habitual=28)
+        self.usd = Recurrente.objects.create(nombre="Anthropic", clave="anthropic", moneda="USD", fuente="visa",
+                                             estado_admin="confirmado", monto_ref=Decimal("20"),
+                                             ultima_fecha=date(2026, 7, 28), dia_habitual=28)
+
+    def test_panel_and_kpi_include_both_currencies(self):
+        for q in ("", "?moneda=USD"):
+            r = self.client.get("/" + q)
+            self.assertEqual({i["rec"].pk for i in r.context["recurrentes"]}, {self.ars.pk, self.usd.pk}, q)
+            self.assertEqual(r.context["kpis"]["faltan"], 2, q)
+            self.assertContains(r, f"?moneda=USD&recurrente={self.usd.pk}")
+            self.assertContains(r, f"?moneda=ARS&recurrente={self.ars.pk}")
+            self.assertContains(r, "U$S 20,00")
+            self.assertContains(r, "$ 82.212,63")
+
+
+class RecurrentesTotalMensualTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 10, "-100", desc="X")
+        base = dict(fuente="cuenta", estado_admin="confirmado", ultima_fecha=date(2026, 9, 1), dia_habitual=1)
+        Recurrente.objects.create(nombre="Luz", clave="luz", moneda="ARS", monto_ref=Decimal("1000"), **base)
+        Recurrente.objects.create(nombre="Agua", clave="agua", moneda="ARS", monto_ref=Decimal("600"),
+                                  frecuencia_meses=2, **base)  # bimonthly → 300/mes
+        Recurrente.objects.create(nombre="AWS", clave="aws", moneda="USD", monto_ref=Decimal("9.50"), **base)
+        Recurrente.objects.create(nombre="Viejo", clave="viejo", moneda="ARS", monto_ref=Decimal("5000"),
+                                  fuente="cuenta", estado_admin="confirmado",
+                                  ultima_fecha=date(2025, 1, 1), dia_habitual=1)  # inactivo: not counted
+        Recurrente.objects.create(nombre="Sugerido", clave="sug", moneda="ARS", monto_ref=Decimal("777"),
+                                  fuente="cuenta", estado_admin="sugerido", ultima_fecha=date(2026, 9, 1))
+
+    def test_monthly_total_per_currency(self):
+        for url in ("/", "/recurrentes/"):
+            r = self.client.get(url)
+            self.assertEqual(r.context["total_recurrentes"], {"ARS": Decimal("1300.00"), "USD": Decimal("9.50")}, url)
+            self.assertContains(r, "$ 1.300,00")
+            self.assertContains(r, "U$S 9,50")
+
+
+class DashboardPendientesKpiTests(TestCase):
+    def test_pending_items_show_in_kpi(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        mov(2026, 9, 10, "-100", desc="X")
+        # monthly, day 5, last paid 2026-08-05 → expected 2026-09-05, limit 09-12; reference 09-10 → pendiente
+        Recurrente.objects.create(nombre="Afip", clave="afip", moneda="ARS", fuente="cuenta", estado_admin="confirmado",
+                                  monto_ref=Decimal("100"), ultima_fecha=date(2026, 8, 5), dia_habitual=5)
+        r = self.client.get("/")
+        self.assertEqual((r.context["kpis"]["faltan"], r.context["kpis"]["pendientes"]), (0, 1))
+        self.assertContains(r, "1 por vencer")
+        self.assertNotContains(r, "al día")

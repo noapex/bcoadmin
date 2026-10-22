@@ -45,8 +45,8 @@
   </div>
   <div class="card kpi">
     <span class="kpi-head"><span class="kpi-label">Recurrentes</span><span class="kpi-icon"><svg class="ic"><use href="#i-repeat"/></svg></span></span>
-    <span class="kpi-value">{% if kpis.faltan %}<span class="badge st-falta">{{ kpis.faltan }} faltan</span>{% else %}<span class="badge st-pagado">al día</span>{% endif %}</span>
-    <span class="kpi-foot">{{ recurrentes|length }} pago{{ recurrentes|length|pluralize }} monitoreado{{ recurrentes|length|pluralize }}</span>
+    <span class="kpi-value">{% if kpis.faltan %}<span class="badge st-falta">{{ kpis.faltan }} faltan</span>{% endif %}{% if kpis.pendientes %} <span class="badge st-pendiente">{{ kpis.pendientes }} por vencer</span>{% endif %}{% if not kpis.faltan and not kpis.pendientes %}<span class="badge st-pagado">al día</span>{% endif %}</span>
+    <span class="kpi-foot">{{ recurrentes|length }} pago{{ recurrentes|length|pluralize }} monitoreado{{ recurrentes|length|pluralize }}{% if recurrentes %} · {% include 'movimientos/_total_recurrentes.html' %}{% endif %}</span>
   </div>
 </div>
 
@@ -69,13 +69,13 @@
     <div class="rec-list">
     {% for r in recurrentes %}
       <div class="rec">
-        <a href="{% url 'movimientos' %}?moneda={{ moneda }}&recurrente={{ r.rec.pk }}" title="{{ r.etiqueta }}">
+        <a href="{% url 'movimientos' %}?moneda={{ r.rec.moneda }}&recurrente={{ r.rec.pk }}" title="{{ r.etiqueta }}">
           <span class="rec-name">{{ r.rec.nombre }}</span>
           <span class="rec-meta">{% if r.rec.ultima_fecha %}Último: {{ r.rec.ultima_fecha|date:"d/m/Y" }}{% endif %}{% if r.estado == 'inactivo' %} · {{ r.etiqueta|lower }}{% endif %}</span>
         </a>
         <span class="rec-side">
           <span class="badge st-{{ r.estado }}"><span aria-hidden="true">{{ r.icono }}</span> {{ r.etiqueta }}</span>
-          {% if r.rec.monto_ref %}<span class="rec-amount">$ {{ r.rec.monto_ref|floatformat:"2g" }}</span>{% endif %}
+          {% if r.rec.monto_ref %}<span class="rec-amount">{% if r.rec.moneda == 'USD' %}U$S{% else %}${% endif %} {{ r.rec.monto_ref|floatformat:"2g" }}</span>{% endif %}
         </span>
       </div>
     {% empty %}

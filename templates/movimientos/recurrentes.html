@@ -52,7 +52,7 @@
 <div class="card"><p class="empty-inline"><svg class="ic"><use href="#i-check"/></svg>No hay sugerencias pendientes. Las nuevas aparecen al importar movimientos.</p></div>
 {% endif %}
 
-<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-repeat"/></svg>Monitoreados <span class="badge">{{ monitoreados|length }}</span></h2>
+<h2 class="section-title"><svg class="ic ic-sm"><use href="#i-repeat"/></svg>Monitoreados <span class="badge">{{ monitoreados|length }}</span>{% if monitoreados %} <small class="muted">Total {% include 'movimientos/_total_recurrentes.html' %}</small>{% endif %}</h2>
 {% if monitoreados %}
 <div class="card table-card">
 <div class="tabla-scroll">
