@@ -647,3 +647,29 @@ class InternosToggleTests(TestCase):
     def test_movimientos_tipo_interno_shows_them(self):
         r = self.client.get("/movimientos/?mes=2026-09&tipo=interno")
         self.assertEqual([m.descripcion for m in r.context["movimientos"]], ["m3"])
+
+
+class MovimientosNavegacionMesTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
+        for m in (7, 8, 9):
+            Detalle.objects.create(codigo="1", fecha=datetime(2026, m, 5), cuenta="c", descripcion=f"m{m}",
+                                   monto=Decimal("-1"), moneda="ARS", tipo="gasto")
+
+    def test_prev_next_shift_the_range_and_keep_filters(self):
+        r = self.client.get("/movimientos/?mes=2026-08&tipo=gasto")
+        self.assertIn("desde=2026-07", r.context["mes_anterior"])
+        self.assertIn("hasta=2026-07", r.context["mes_anterior"])
+        self.assertIn("tipo=gasto", r.context["mes_anterior"])
+        self.assertNotIn("mes=", r.context["mes_anterior"])
+        self.assertIn("desde=2026-09", r.context["mes_siguiente"])
+        self.assertContains(r, "Mes anterior")
+
+    def test_range_keeps_its_length(self):
+        r = self.client.get("/movimientos/?desde=2026-07&hasta=2026-08")
+        self.assertIn("desde=2026-08", r.context["mes_siguiente"])
+        self.assertIn("hasta=2026-09", r.context["mes_siguiente"])
+
+    def test_no_next_after_last_month_with_data(self):
+        r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertIsNone(r.context["mes_siguiente"])

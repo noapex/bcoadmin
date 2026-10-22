@@ -111,6 +111,21 @@ def _toggle_internos(request):
     return {"internos_off": sin.urlencode(), "internos_on": con.urlencode()}
 
 
+def _navegar_meses(request, desde, hasta, ultimo):
+    """Query strings that shift the [desde, hasta] range one month back/forward, keeping its length and
+    every other GET param. Forward is None once the range reaches the last month with data."""
+    if not desde:
+        return {"mes_anterior": None, "mes_siguiente": None}
+
+    def qs(n):
+        q = request.GET.copy()
+        q.pop("mes", None)
+        q["desde"], q["hasta"] = _shift(desde, n), _shift(hasta, n)
+        return q.urlencode()
+
+    return {"mes_anterior": qs(-1), "mes_siguiente": qs(1) if not ultimo or hasta < ultimo else None}
+
+
 def _total_mensual(items):
     """Monthly-equivalent cost of monitored items per currency (monto_ref / frecuencia), skipping inactive ones."""
     total = {m: Decimal(0) for m in MONEDAS}
@@ -296,6 +311,7 @@ def movimientos_list(request):
         "categoria_obj": cat, "recurrente_obj": rec,
         "filtros": filtros, "filtros_qs": urlencode(filtros),
         "internos": internos, **_toggle_internos(request),
+        **_navegar_meses(request, desde, hasta, stats.ultimo_mes_con_datos(moneda)),
     })
 
 

@@ -719,3 +719,6 @@ details.plegable[open] > summary .chev { transform: rotate(90deg); }
 details.plegable[open] > summary { color: var(--text); }
 .card-title .badge:hover { color: #fff; }
 .rec-vacio { flex-wrap: wrap; }
+
+.ic.flip { transform: scaleX(-1); }
+.nav-meses a { display: inline-flex; align-items: center; gap: 6px; }

@@ -31,6 +31,12 @@
     <label class="field"><span>Hasta</span><input type="month" name="hasta" value="{{ hasta|default:'' }}"></label>
     <button class="btn btn-sm" type="submit"><svg class="ic ic-sm"><use href="#i-calendar"/></svg>Ver</button>
   </form>
+  {% if mes_anterior %}
+  <div class="seg nav-meses" role="group" aria-label="Moverse entre meses">
+    <a href="?{{ mes_anterior }}" title="Mes anterior" aria-label="Mes anterior"><svg class="ic ic-sm"><use href="#i-back"/></svg> Anterior</a>
+    {% if mes_siguiente %}<a href="?{{ mes_siguiente }}" title="Mes siguiente" aria-label="Mes siguiente">Siguiente <svg class="ic ic-sm flip"><use href="#i-back"/></svg></a>{% endif %}
+  </div>
+  {% endif %}
 </div>
 <p class="filtros">
   <span class="badge b-accent">{{ moneda }}</span>{% if desde %}<span class="badge">{% if desde == hasta %}{{ desde }}{% else %}{{ desde }} → {{ hasta }}{% endif %}</span>{% endif %}{% if categoria %}<span class="badge">categoría: {% if categoria == 'none' %}sin categoría{% elif categoria_obj %}{{ categoria_obj.name }}{% else %}#{{ categoria }}{% endif %}</span>{% endif %}{% if tipo %}<span class="badge {% if tipo == 'ingreso' %}b-pos{% elif tipo == 'gasto' %}b-neg{% endif %}">{{ tipo }}</span>{% endif %}{% if fuente %}<span class="badge">fuente: {{ fuente }}</span>{% endif %}{% if tarjeta %}<span class="badge">pagos sin detalle de {% if tarjeta == 'otras' %}otras tarjetas{% else %}{{ tarjeta }}{% endif %}</span>{% endif %}{% if recurrente %}<span class="badge">recurrente {% if recurrente_obj %}{{ recurrente_obj.nombre }}{% else %}#{{ recurrente }}{% endif %}</span>{% endif %}
