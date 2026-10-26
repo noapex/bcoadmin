@@ -322,6 +322,9 @@ def movimientos_list(request):
 def demo_toggle(request):
     activo = not request.session.get(demo.SESSION_KEY, False)
     request.session[demo.SESSION_KEY] = activo
+    # Pending messages belong to the other database: drop them.
+    for _ in messages.get_messages(request):
+        pass
     messages.success(request, "Modo demo activado: estás viendo datos ficticios." if activo
                      else "Modo demo desactivado: volviste a tus datos.")
     nxt = request.POST.get("next", "")

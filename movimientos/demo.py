@@ -11,6 +11,7 @@ from django.db import connections
 from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils.cache import add_never_cache_headers
 
 DEMO_DB = "demo"
 DEFAULT_DB = "default"
@@ -55,6 +56,13 @@ def en_demo(request) -> bool:
     return bool(user is not None and user.is_authenticated and session is not None and session.get(SESSION_KEY))
 
 
+def _sin_cache(response):
+    """HTML is never cached: Back after toggling must not show a page of the other database."""
+    if response.get("Content-Type", "").startswith("text/html"):
+        add_never_cache_headers(response)
+    return response
+
+
 class DemoMiddleware:
     """Must run after SessionMiddleware (and AuthenticationMiddleware)."""
 
@@ -66,14 +74,15 @@ class DemoMiddleware:
         token = _db.set(DEMO_DB if activo else DEFAULT_DB)
         try:
             if not activo:
-                return self.get_response(request)
+                return _sin_cache(self.get_response(request))
             # Uploaded statements in MEDIA_ROOT are real data.
             if settings.MEDIA_URL and request.path.startswith(settings.MEDIA_URL):
                 raise Http404
-            exento = request.path == reverse("demo_toggle") or request.path.startswith(settings.STATIC_URL)
+            exento = (request.path == reverse("demo_toggle") or request.path.startswith(settings.STATIC_URL)
+                      or request.path.startswith("/accounts/"))
             if not exento and not demo_disponible():
-                return render(request, "movimientos/demo_vacio.html")
-            return self.get_response(request)
+                return _sin_cache(render(request, "movimientos/demo_vacio.html"))
+            return _sin_cache(self.get_response(request))
         finally:
             _db.reset(token)
 
@@ -81,3 +90,12 @@ class DemoMiddleware:
 def contexto(request):
     """Template context processor: `demo` is True while the request runs in demo mode."""
     return {"demo": demo_activo()}
+
+
+def mostrar_toolbar(request) -> bool:
+    """SHOW_TOOLBAR_CALLBACK: never in demo mode (the toolbar keeps real requests, SQL and settings)."""
+    if en_demo(request):
+        return False
+    from debug_toolbar.middleware import show_toolbar
+
+    return show_toolbar(request)

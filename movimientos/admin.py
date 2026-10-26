@@ -1,9 +1,11 @@
+from contextlib import contextmanager
+
 from django.contrib import admin, messages
 from django.db import transaction
 from django.shortcuts import redirect
 from mptt.admin import DraggableMPTTAdmin
 
-from .demo import db_actual, demo_activo
+from .demo import DEFAULT_DB, db_actual, demo_activo
 from .models import Categoria, DataFile, Detalle, Recurrente, Regla, Resumen, Tarjeta
 from .services.classify import clasificar_todo
 from .services.recurring import estado
@@ -142,6 +144,17 @@ class DataFileAdmin(DemoAdmin):
         return not demo_activo() and super().has_change_permission(request, obj)
 
 
+@contextmanager
+def _sin_log_real():
+    """Demo mode: roll back what mptt writes straight to the admin log (LogEntry, default database)."""
+    if not demo_activo():
+        yield
+        return
+    with transaction.atomic(using=DEFAULT_DB):
+        yield
+        transaction.set_rollback(True, using=DEFAULT_DB)
+
+
 @admin.register(Categoria)
 class CategoriaAdmin(DemoAdmin, DraggableMPTTAdmin):
     list_display = ('tree_actions', 'indented_title')
@@ -149,5 +162,9 @@ class CategoriaAdmin(DemoAdmin, DraggableMPTTAdmin):
 
     def _move_node(self, request):
         # mptt wraps this in transaction.atomic() on the default database only.
-        with transaction.atomic(using=db_actual()):
+        with transaction.atomic(using=db_actual()), _sin_log_real():
             return super()._move_node(request)
+
+    def delete_selected_tree(self, modeladmin, request, queryset):
+        with transaction.atomic(using=db_actual()), _sin_log_real():
+            return super().delete_selected_tree(modeladmin, request, queryset)

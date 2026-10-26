@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.models import Session
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
@@ -82,11 +83,11 @@ class MiddlewareTests(TestCase):
 
         def view(request):
             seen.append(demo.db_actual())
-            return "ok"
+            return HttpResponse("ok")
 
         mw = demo.DemoMiddleware(view)
-        self.assertEqual(mw(self._request({"demo": True})), "ok")
-        self.assertEqual(mw(self._request({})), "ok")
+        self.assertEqual(mw(self._request({"demo": True})).content, b"ok")
+        self.assertEqual(mw(self._request({})).content, b"ok")
         self.assertEqual(seen, ["demo", "default"])
         self.assertEqual(demo.db_actual(), "default")
 
@@ -300,3 +301,111 @@ class GenerarDemoTests(TestCase):
         uno = _resumen_demo()
         self._run(2)
         self.assertNotEqual(_resumen_demo()[0], uno[0])
+
+
+class DebugToolbarTests(DemoClientBase):
+    def setUp(self):
+        super().setUp()
+        det("demo", "Algo ficticio")
+
+    def _request(self, on):
+        request = RequestFactory().get("/__debug__/render_panel/", REMOTE_ADDR="127.0.0.1")
+        request.user = self.user
+        request.session = {"demo": on}
+        return request
+
+    def test_callback_wins_over_local_settings(self):
+        from django.conf import settings
+        self.assertEqual(settings.DEBUG_TOOLBAR_CONFIG["SHOW_TOOLBAR_CALLBACK"], "movimientos.demo.mostrar_toolbar")
+
+    def test_callback_hides_toolbar_only_in_demo(self):
+        from django.conf import settings
+        if "debug_toolbar" not in settings.INSTALLED_APPS:
+            self.skipTest("debug_toolbar not installed")
+        with self.settings(DEBUG=True, INTERNAL_IPS=["127.0.0.1"]):
+            self.assertFalse(demo.mostrar_toolbar(self._request(True)))
+            self.assertTrue(demo.mostrar_toolbar(self._request(False)))
+
+    def test_no_markup_and_no_panels_in_demo(self):
+        from django.conf import settings
+        from django.http import Http404
+        if "debug_toolbar" not in settings.INSTALLED_APPS:
+            self.skipTest("debug_toolbar not installed")
+        from debug_toolbar import views as djdt_views
+        self.set_demo(True)
+        with self.settings(DEBUG=True, INTERNAL_IPS=["127.0.0.1"]):
+            r = self.client.get("/movimientos/")
+            self.assertNotContains(r, "djDebug")
+            with self.assertRaises(Http404):
+                djdt_views.render_panel(self._request(True))
+
+
+class CategoriaMoveTests(DemoClientBase):
+    def test_move_node_in_demo_writes_no_log_entry(self):
+        from django.contrib.admin.models import LogEntry
+        with demo.usar_demo():
+            a = Categoria.objects.create(name="A")
+            b = Categoria.objects.create(name="B")
+        det("demo", "Algo ficticio")
+        self.set_demo(True)
+        r = self.client.post("/admin/movimientos/categoria/", {
+            "cmd": "move_node", "cut_item": b.pk, "pasted_on": a.pk, "position": "last-child"})
+        self.assertContains(r, "OK, moved.")
+        self.assertEqual(Categoria.objects.using("demo").get(name="B").parent_id, a.pk)
+        self.assertFalse(LogEntry.objects.using("default").exists())
+
+
+class BackfillMigrationTests(TestCase):
+    databases = {"default", "demo"}
+
+    def test_backfill_saves_on_the_migrated_alias(self):
+        import importlib
+        from django.apps import apps
+        from django.db import connections
+        mig = importlib.import_module("movimientos.migrations.0009_backfill_legacy")
+        real = det("default", "Real", monto="-5")
+        Detalle.objects.using("default").filter(pk=real.pk).update(fuente="visa", moneda="USD")
+        fila = det("demo", "Demo", monto="-5")
+        Detalle.objects.using("demo").filter(pk=fila.pk).update(fuente="visa", moneda="USD")
+        mig.backfill(apps, mock.Mock(connection=connections["demo"]))
+        self.assertEqual(Detalle.objects.using("demo").values_list("fuente", "moneda").get(), ("cuenta", "ARS"))
+        self.assertEqual(Detalle.objects.using("default").values_list("fuente", "moneda").get(), ("visa", "USD"))
+
+
+class HardeningTests(DemoClientBase):
+    def test_html_is_not_cached_in_both_modes(self):
+        det("demo", "Algo ficticio")
+        self.assertIn("no-store", self.client.get("/movimientos/")["Cache-Control"])
+        self.set_demo(True)
+        self.assertIn("no-store", self.client.get("/movimientos/")["Cache-Control"])
+
+    def test_toggle_drops_pending_messages(self):
+        det("demo", "Algo ficticio")
+        self.client.post(reverse("recurrentes_ignorar_todas"))  # leaves a pending real-mode message
+        r = self.client.post(reverse("demo_toggle"), {"next": "/movimientos/"}, follow=True)
+        self.assertNotContains(r, "ignorada")
+        self.assertContains(r, "Modo demo activado")
+
+    def test_empty_demo_db_lets_logout_and_toggle_through(self):
+        self.set_demo(True)
+        r = self.client.post(reverse("demo_toggle"))
+        self.assertEqual(r.status_code, 302)
+        self.set_demo(True)
+        r = self.client.post("/accounts/logout/")
+        self.assertNotContains(r, "generar_demo")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_generar_demo_refuses_same_file_by_resolved_path(self):
+        import os
+        import tempfile
+        from django.core.management.base import CommandError
+        from django.db import connections
+        det("demo", "Debe sobrevivir")
+        tmp = tempfile.mkdtemp()
+        real = os.path.join(tmp, "db.sqlite3")
+        alias = os.path.join(tmp, "sub", "..", "db.sqlite3")
+        with mock.patch.dict(connections["default"].settings_dict, {"NAME": real}), \
+                mock.patch.dict(connections["demo"].settings_dict, {"NAME": alias}):
+            with self.assertRaises(CommandError):
+                call_command("generar_demo", stdout=StringIO())
+        self.assertTrue(Detalle.objects.using("demo").filter(descripcion="Debe sobrevivir").exists())

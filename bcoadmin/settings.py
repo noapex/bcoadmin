@@ -178,3 +178,9 @@ try:
     from .local_settings import *
 except ImportError:
     pass
+
+# Demo mode hides the debug toolbar (its panels show earlier real requests and settings).
+# Set after local_settings so this callback always wins. It still honors settings.DEBUG, so the
+# toolbar's "can't be used with tests" check (E001, triggered by any custom callback) does not apply.
+DEBUG_TOOLBAR_CONFIG = {'IS_RUNNING_TESTS': False, **globals().get('DEBUG_TOOLBAR_CONFIG', {}),
+                        'SHOW_TOOLBAR_CALLBACK': 'movimientos.demo.mostrar_toolbar'}

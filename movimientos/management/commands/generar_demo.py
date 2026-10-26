@@ -7,6 +7,7 @@ import random
 from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
@@ -352,7 +353,9 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         if DEMO_DB not in settings.DATABASES:
             raise CommandError("settings.DATABASES has no 'demo' database.")
-        if connections[DEMO_DB].settings_dict["NAME"] == connections[DEFAULT_DB_ALIAS].settings_dict["NAME"]:
+        nombres = [Path(str(connections[a].settings_dict["NAME"])).expanduser().resolve()
+                   for a in (DEMO_DB, DEFAULT_DB_ALIAS)]
+        if nombres[0] == nombres[1]:
             raise CommandError("The demo database must not be the real database.")
         if opts["meses"] < 3:
             raise CommandError("--meses must be at least 3.")
