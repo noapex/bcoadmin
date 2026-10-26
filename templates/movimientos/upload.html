@@ -79,7 +79,7 @@
       ["dragleave", "drop"].forEach(function (t) { zone.addEventListener(t, function () { zone.classList.remove("drag"); }); });
     })();
     </script>
-    {% else %}
+    {% elif not demo %}
     <div><a class="btn btn-ghost" href="{% url 'upload' %}"><svg class="ic ic-sm"><use href="#i-upload"/></svg>Importar más archivos</a></div>
     {% endif %}
 </div>

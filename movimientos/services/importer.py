@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .. import parsers
+from ..demo import db_actual
 from ..models import DataFile, Detalle, Resumen
 from ..parsers.base import norm_ref
 from .classify import clasificar_todo
@@ -97,7 +98,7 @@ def import_file(path, datafile=None):
     report.omitidas = result.omitidas
     report.errores.extend(result.errores)
     try:
-        with transaction.atomic():
+        with transaction.atomic(using=db_actual()):
             consumed = set()
             for p in result.movimientos:
                 ref = norm_ref(p.codigo)

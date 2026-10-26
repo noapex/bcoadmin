@@ -16,8 +16,8 @@ Including another URLconf
 from django.urls import include, re_path
 from django.contrib import admin
 from django.views.generic import RedirectView
-from movimientos.views import (categorias, dashboard, movimientos_list, recurrente_estado, recurrentes,
-                               recurrentes_ignorar_todas, upload, sync, tarjetas)
+from movimientos.views import (categorias, dashboard, demo_toggle, movimientos_list, recurrente_estado,
+                               recurrentes, recurrentes_ignorar_todas, upload, sync, tarjetas)
 from movimientos import views_categorias as abm
 from django.conf import settings
 from django.conf.urls.static import static
@@ -29,6 +29,7 @@ urlpatterns = [
     re_path(r'^movimientos/$', movimientos_list, name='movimientos'),
     re_path(r'^upload/', upload, name='upload'),
     re_path(r'^sync/', sync, name='sync'),
+    re_path(r'^demo/$', demo_toggle, name='demo_toggle'),
     re_path(r'^categorias/$', categorias, name='categorias'),
     re_path(r'^categorias/gestionar/$', abm.categorias_gestionar, name='categorias_gestionar'),
     re_path(r'^categorias/gestionar/nueva/$', abm.categoria_nueva, name='categoria_nueva'),

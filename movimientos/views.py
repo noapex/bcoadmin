@@ -10,9 +10,11 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.db.models import Sum
 from django.http import Http404
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from . import demo
 from .forms import FileFieldForm
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
@@ -28,6 +30,7 @@ ANIO_MIN, ANIO_MAX = 2000, 2100
 MAX_MESES = 60
 ESTADO_ORDEN = {"falta": 0, "pendiente": 1, "atrasado": 2, "pagado": 3, "inactivo": 4}
 ESTADO_ICONO = {"falta": "❌", "pendiente": "⏳", "atrasado": "⚠", "pagado": "✅", "inactivo": "💤"}
+SIN_IMPORTAR_EN_DEMO = "En modo demo no se importan archivos."
 ESTADO_ETIQUETA = {"falta": "Falta", "pendiente": "Pendiente", "atrasado": "Pagado con atraso",
                    "pagado": "Pagado", "inactivo": "Inactivo"}
 
@@ -315,7 +318,22 @@ def movimientos_list(request):
     })
 
 
+@require_POST
+def demo_toggle(request):
+    activo = not request.session.get(demo.SESSION_KEY, False)
+    request.session[demo.SESSION_KEY] = activo
+    messages.success(request, "Modo demo activado: estás viendo datos ficticios." if activo
+                     else "Modo demo desactivado: volviste a tus datos.")
+    nxt = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
+                                           require_https=request.is_secure()):
+        nxt = "/"
+    return redirect(nxt)
+
+
 def sync(request):
+    if demo.demo_activo():
+        return render(request, 'movimientos/upload.html', {'error': SIN_IMPORTAR_EN_DEMO})
     # Download into a fresh temp dir so any file found there is the new one.
     with tempfile.TemporaryDirectory() as tmp:
         download_movs(tmp)
@@ -327,6 +345,9 @@ def sync(request):
 
 
 def upload(request):
+    if demo.demo_activo():
+        # Nothing is read or stored: real files must never land in the demo database or media/.
+        return render(request, 'movimientos/upload.html', {'error': SIN_IMPORTAR_EN_DEMO})
     form = FileFieldForm()
     if request.method == 'POST':
         files = request.FILES.getlist('file_field')

@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'movimientos.demo.DemoMiddleware',
     'django.contrib.auth.middleware.LoginRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -68,6 +69,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 # 'django.core.context_processors.static',
                 'django.contrib.messages.context_processors.messages',
+                'movimientos.demo.contexto',
             ],
             'libraries':{
                 'util': 'movimientos.templatetags.util',
@@ -95,8 +97,15 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+    },
+    # "Modo demo": synthetic data only (./manage.py generar_demo); see movimientos/demo.py.
+    'demo': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.demo.sqlite3'),
+    },
 }
+
+DATABASE_ROUTERS = ['movimientos.db_router.DemoRouter']
 
 
 # Password validation

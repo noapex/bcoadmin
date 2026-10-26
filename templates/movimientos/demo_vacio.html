@@ -1,0 +1,11 @@
+{% extends 'movimientos/base.html' %}
+
+{% block title %}Modo demo sin datos{% endblock %}
+
+{% block content %}
+<div class="card empty">
+  <div class="empty-icon"><svg class="ic"><use href="#i-inbox"/></svg></div>
+  <h2>La base de demo todavía no tiene datos.</h2>
+  <p>Generalos con <code>./manage.py generar_demo</code> y recargá la página, o desactivá el modo demo para volver a tus datos.</p>
+</div>
+{% endblock %}

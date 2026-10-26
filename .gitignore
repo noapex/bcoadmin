@@ -103,4 +103,5 @@ ENV/
 # bcoadmin dashboard work
 .superpowers/
 db.sqlite3*
+db.demo.sqlite3*
 media/

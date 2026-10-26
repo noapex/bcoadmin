@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from .demo import db_actual
 from .forms import CategoriaForm, ReglaForm
 from .models import Categoria, Detalle, Regla
 from .services.classify import CATEGORIAS_RESERVADAS, clasificar_todo
@@ -23,7 +24,7 @@ def _aplicar(request, cambio, hecho):
     `cambio` may return an extra sentence (or None) for the success message. Any failure rolls both back.
     """
     try:
-        with transaction.atomic():
+        with transaction.atomic(using=db_actual()):
             extra = cambio()
             n = clasificar_todo()
             # Categories decide which movements may suggest recurring items.

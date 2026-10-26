@@ -1,13 +1,40 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.db import transaction
+from django.shortcuts import redirect
 from mptt.admin import DraggableMPTTAdmin
 
+from .demo import db_actual, demo_activo
 from .models import Categoria, DataFile, Detalle, Recurrente, Regla, Resumen, Tarjeta
 from .services.classify import clasificar_todo
 from .services.recurring import estado
 
 
+class DemoAdmin(admin.ModelAdmin):
+    """Demo mode: the admin log (always on the default database) is neither written nor shown.
+
+    Its object ids and reprs belong to the real database: demo writes would pollute it and the
+    history page would show real rows' descriptions next to demo objects.
+    """
+
+    def log_addition(self, request, obj, message):
+        return None if demo_activo() else super().log_addition(request, obj, message)
+
+    def log_change(self, request, obj, message):
+        return None if demo_activo() else super().log_change(request, obj, message)
+
+    def log_deletions(self, request, queryset):
+        return None if demo_activo() else super().log_deletions(request, queryset)
+
+    def history_view(self, request, object_id, extra_context=None):
+        if demo_activo():
+            self.message_user(request, "El historial no está disponible en modo demo.", messages.WARNING)
+            opts = self.opts
+            return redirect(f"admin:{opts.app_label}_{opts.model_name}_changelist")
+        return super().history_view(request, object_id, extra_context)
+
+
 @admin.register(Detalle)
-class DetalleAdmin(admin.ModelAdmin):
+class DetalleAdmin(DemoAdmin):
     list_display = ('fecha', 'fuente', 'moneda', 'descripcion', 'monto', 'tipo', 'categoria', 'categoria_manual')
     list_filter = ('fuente', 'moneda', 'tipo', 'categoria', 'categoria_manual',
                    ('categoria', admin.EmptyFieldListFilter))
@@ -29,7 +56,7 @@ class DetalleAdmin(admin.ModelAdmin):
         self.message_user(request, f'{n} movimientos vuelven a las reglas automáticas.')
 
 
-class _ReclasificaAdmin(admin.ModelAdmin):
+class _ReclasificaAdmin(DemoAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         clasificar_todo()
@@ -61,7 +88,7 @@ class TarjetaAdmin(_ReclasificaAdmin):
 
 
 @admin.register(Recurrente)
-class RecurrenteAdmin(admin.ModelAdmin):
+class RecurrenteAdmin(DemoAdmin):
     list_display = ('nombre', 'fuente', 'moneda', 'frecuencia_meses', 'dia_habitual',
                     'monto_ref', 'ultima_fecha', 'estado_admin', 'estado_actual', 'puntaje')
     list_filter = ('estado_admin', 'fuente', 'moneda')
@@ -94,7 +121,7 @@ class RecurrenteAdmin(admin.ModelAdmin):
 
 
 @admin.register(Resumen)
-class ResumenAdmin(admin.ModelAdmin):
+class ResumenAdmin(DemoAdmin):
     list_display = ('fuente', 'desde', 'hasta', 'vencimiento')
     ordering = ('-hasta',)
 
@@ -106,13 +133,21 @@ class ResumenAdmin(admin.ModelAdmin):
 
 
 @admin.register(DataFile)
-class DataFileAdmin(admin.ModelAdmin):
-    pass
+class DataFileAdmin(DemoAdmin):
+    # Demo mode never stores files in media/.
+    def has_add_permission(self, request):
+        return not demo_activo() and super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return not demo_activo() and super().has_change_permission(request, obj)
 
 
-admin.site.register(
-    Categoria,
-    DraggableMPTTAdmin,
-    list_display=('tree_actions', 'indented_title'),
-    list_display_links=('indented_title',),
-)
+@admin.register(Categoria)
+class CategoriaAdmin(DemoAdmin, DraggableMPTTAdmin):
+    list_display = ('tree_actions', 'indented_title')
+    list_display_links = ('indented_title',)
+
+    def _move_node(self, request):
+        # mptt wraps this in transaction.atomic() on the default database only.
+        with transaction.atomic(using=db_actual()):
+            return super()._move_node(request)

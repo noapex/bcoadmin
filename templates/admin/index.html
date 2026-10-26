@@ -1,0 +1,3 @@
+{% extends "admin/index.html" %}
+{# Demo mode: the admin log lives in the real database and shows real objects' names. #}
+{% block sidebar %}{% if not demo %}{{ block.super }}{% endif %}{% endblock %}

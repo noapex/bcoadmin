@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b1020">
-  <title>{% block title %}{% endblock %} · Mis Cuentas</title>
+  <title>{% if demo %}[Demo] {% endif %}{% block title %}{% endblock %} · Mis Cuentas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,6 +16,11 @@
 </head>
 <body>
 {% include 'movimientos/_icons.html' %}
+{% if demo %}
+<div class="demo-banner" role="status">
+  <span class="demo-pill"><svg class="ic ic-sm"><use href="#i-eye"/></svg>MODO DEMO · datos ficticios</span>
+</div>
+{% endif %}
 {% with u=request.resolver_match.url_name %}
 {% block nav %}
 <header class="topbar">
@@ -35,6 +40,15 @@
       <span class="nav-sep" aria-hidden="true"></span>
       <a href="/admin/"><svg class="ic"><use href="#i-shield"/></svg>Admin</a>
     </nav>
+    <form method="post" action="{% url 'demo_toggle' %}" class="demo-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="demo-switch{% if demo %} on{% endif %}" role="switch"
+              aria-checked="{% if demo %}true{% else %}false{% endif %}"
+              title="{% if demo %}Volver a tus datos reales{% else %}Mostrar datos ficticios para presentar la app{% endif %}">
+        <span class="demo-track" aria-hidden="true"><span class="demo-knob"></span></span>Modo demo
+      </button>
+    </form>
   </div>
 </header>
 {% endblock %}
