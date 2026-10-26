@@ -8,18 +8,21 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Sum
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from . import demo
-from .forms import FileFieldForm
+from .demo import db_actual
+from .forms import AUTO, AUTO_LABEL, FileFieldForm, MovimientoForm, opciones_categoria
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
-from .services.classify import CAT_SIN_DETALLE, CARD_SOURCES, patrones_tarjeta
+from .services.classify import CAT_SIN_DETALLE, CARD_SOURCES, clasificar_todo, patrones_tarjeta
 from .services.importer import import_files
 
 MONEDAS = ("ARS", "USD")
@@ -254,7 +257,8 @@ def tarjetas(request):
 
 def movimientos_list(request):
     moneda = _moneda(request)
-    qs = Detalle.objects.filter(activo=True, moneda=moneda)
+    # Rows excluded from totals (activo=False) stay listed, greyed out; they never add to `total`.
+    qs = Detalle.objects.filter(moneda=moneda)
     # Period: `mes` is shorthand for a one-month range; otherwise `desde`/`hasta`.
     # A recurring drill-down with no period shows all its history.
     mes = _mes(request.GET.get("mes"))
@@ -302,7 +306,7 @@ def movimientos_list(request):
     else:
         tarjeta = ""
     qs = qs.select_related("categoria").order_by("-fecha", "-pk")
-    total = qs.aggregate(t=Sum("monto"))["t"] or Decimal(0)
+    total = qs.filter(activo=True).aggregate(t=Sum("monto"))["t"] or Decimal(0)
     # Non-period filters, carried by the period form and the currency toggle.
     filtros = [(k, v) for k, v in [("categoria", categoria), ("tipo", tipo), ("fuente", fuente),
                                    ("tarjeta", tarjeta), ("recurrente", recurrente),
@@ -315,7 +319,70 @@ def movimientos_list(request):
         "filtros": filtros, "filtros_qs": urlencode(filtros),
         "internos": internos, **_toggle_internos(request),
         **_navegar_meses(request, desde, hasta, stats.ultimo_mes_con_datos(moneda)),
+        "opciones_categoria": opciones_categoria(), "auto": AUTO, "auto_label": AUTO_LABEL,
     })
+
+
+def _error(mensaje, status):
+    return JsonResponse({"ok": False, "error": mensaje}, status=status)
+
+
+@require_POST
+def movimiento_categoria(request, pk):
+    """Quick category assignment from the list: a category marks the row manual; "auto" hands it back to rules."""
+    d = Detalle.objects.filter(pk=pk).first()
+    if d is None:
+        return _error("El movimiento no existe.", 404)
+    valor = request.POST.get("categoria", "")
+    if valor == AUTO:
+        with transaction.atomic(using=db_actual()):
+            d.categoria_manual = False
+            d.save(update_fields=["categoria_manual", "modified"])
+            clasificar_todo()  # only touches non-manual rows
+        d.refresh_from_db()
+    elif valor.isdigit():
+        cat = Categoria.objects.filter(pk=int(valor)).first()
+        if cat is None:
+            return _error("La categoría no existe.", 404)
+        d.categoria, d.categoria_manual = cat, True
+        d.save(update_fields=["categoria", "categoria_manual", "modified"])
+    else:
+        return _error("Categoría inválida.", 400)
+    return JsonResponse({"ok": True, "categoria": d.categoria.name if d.categoria else "Sin categoría",
+                         "manual": d.categoria_manual, "tipo": d.tipo})
+
+
+def _lista_del_mes(d):
+    return f"{reverse('movimientos')}?{urlencode({'moneda': d.moneda, 'mes': d.fecha.strftime('%Y-%m')})}"
+
+
+def movimiento_editar(request, pk):
+    d = get_object_or_404(Detalle, pk=pk)
+    nxt = request.GET.get("next", "")
+    if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
+                                           require_https=request.is_secure()):
+        nxt = _lista_del_mes(d)
+    initial = {"categoria": str(d.categoria_id) if d.categoria_id else AUTO, "tipo": d.tipo,
+               "excluir": not d.activo}
+    form = MovimientoForm(request.POST or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        d.activo = not data["excluir"]
+        with transaction.atomic(using=db_actual()):
+            if data["categoria"] == AUTO:
+                # Category and kind both go back to the rules: the chosen tipo is ignored.
+                d.categoria_manual = False
+                d.save()
+                clasificar_todo()
+            else:
+                cat_id = int(data["categoria"])
+                if cat_id != d.categoria_id or data["tipo"] != d.tipo:
+                    d.categoria_manual = True
+                d.categoria_id, d.tipo = cat_id, data["tipo"]
+                d.save()
+        messages.success(request, "Movimiento actualizado.")
+        return redirect(nxt)
+    return render(request, "movimientos/movimiento_editar.html", {"d": d, "form": form, "next": nxt, "auto": AUTO})
 
 
 @require_POST

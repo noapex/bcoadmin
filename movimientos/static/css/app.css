@@ -777,3 +777,22 @@ details.plegable[open] > summary { color: var(--text); }
   .demo-form { position: absolute; top: 8px; right: 12px; }
   .demo-switch { font-size: 13px; padding: 6px 10px; }
 }
+
+/* ---------- Movement edit: inline category picker, manual marker, excluded rows ---------- */
+.cat-cell { cursor: pointer; white-space: nowrap; }
+.cat-cell:hover .cat-nombre { color: var(--text-strong); text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+.cat-cell select { min-width: 180px; padding: 5px 8px; font-size: 13px; }
+.manual-mark { display: inline-flex; vertical-align: middle; margin-left: 6px; color: var(--accent-2); opacity: .8; }
+.cat-error { display: block; color: var(--neg); font-size: 12px; margin-top: 4px; white-space: normal; }
+#movs tr.excluido td { color: var(--muted); }
+#movs tr.excluido td.neg, #movs tr.excluido td.pos { color: var(--faint); text-decoration: line-through; }
+.mov-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 18px; margin: 0 0 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.mov-resumen div { min-width: 0; }
+.mov-resumen .ancho { grid-column: 1 / -1; }
+.mov-resumen dt { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.mov-resumen dd { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
+.editor-avanzado { margin: 18px 0 0; text-align: right; font-size: 12px; }
+.editor-avanzado a { color: var(--faint); }
+.editor-avanzado a:hover { color: var(--muted); }
+#mov-form .abm-campo.check { flex-wrap: wrap; }
+#mov-form .abm-campo.check .help { flex-basis: 100%; margin-top: 0; }

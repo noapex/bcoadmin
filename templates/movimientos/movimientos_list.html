@@ -53,15 +53,15 @@
   </thead>
   <tbody>
   {% for d in movimientos %}
-    <tr>
+    <tr{% if not d.activo %} class="excluido"{% endif %}>
       <td class="num" style="white-space:nowrap" data-fecha="{{ d.fecha|date:'YmdHis' }}">{{ d.fecha|date:"d/m/Y" }}</td>
       <td>{{ d.fuente }}</td>
-      <td class="desc-cell">{{ d.descripcion }}</td>
+      <td class="desc-cell">{{ d.descripcion }}{% if not d.activo %} <span class="badge" title="No suma en los totales">excluido</span>{% endif %}</td>
       <td class="num">{{ d.cuota }}</td>
       <td class="r {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap" data-monto="{{ d.monto|default_if_none:0|stringformat:'s' }}">{{ d.monto|floatformat:"2g" }}</td>
       <td class="tipo">{{ d.tipo }}</td>
-      <td class="cat-cell">{{ d.categoria.name|default:"Sin categoría" }}</td>
-      <td><a class="icon-btn" href="{% url 'admin:movimientos_detalle_change' d.pk %}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a></td>
+      <td class="cat-cell" title="Cambiar categoría" data-url="{% url 'movimiento_categoria' d.pk %}" data-cat="{% if d.categoria_manual and d.categoria_id %}{{ d.categoria_id }}{% endif %}"><span class="cat-nombre">{{ d.categoria.name|default:"Sin categoría" }}</span>{% if d.categoria_manual %}<span class="manual-mark" title="Categoría asignada a mano" aria-label="Categoría asignada a mano"><svg class="ic ic-sm"><use href="#i-lock"/></svg></span>{% endif %}</td>
+      <td><a class="icon-btn" href="{% url 'movimiento_editar' d.pk %}?next={{ request.get_full_path|urlencode }}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a></td>
     </tr>
   {% empty %}
     <tr><td colspan="8"><p class="empty-inline"><svg class="ic"><use href="#i-inbox"/></svg>No hay movimientos para este filtro.</p></td></tr>
@@ -74,6 +74,12 @@
 </table>
 </div>
 </div>
+<div id="cat-picker-home" hidden>
+  <select id="cat-picker" aria-label="Categoría">
+    <option value="{{ auto }}">{{ auto_label }}</option>
+    {% for value, label in opciones_categoria %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </select>
+</div>
 <script>
   $(function () {
     var fmt = new Intl.NumberFormat("es-AR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -81,7 +87,8 @@
 
     // Sum the rows left visible by the column filters; hide the partial when nothing is filtered.
     function actualizarParcial() {
-      var $todas = $tabla.children("tbody:not(.tablesorter-infoOnly)").children("tr").has("td[data-monto]");
+      // Rows excluded from totals (tr.excluido) never count.
+      var $todas = $tabla.children("tbody:not(.tablesorter-infoOnly)").children("tr").not(".excluido").has("td[data-monto]");
       var $visibles = $todas.not(".filtered");
       var suma = 0;
       $visibles.find("td[data-monto]").each(function () { suma += parseFloat(this.dataset.monto) || 0; });
@@ -106,6 +113,63 @@
       headers: {0: {sorter: "fecha-raw"}, 4: {sorter: "monto-raw"}},
       widgetOptions: {filter_placeholder: {search: "Filtrar…"}}})
       .on("filterEnd", actualizarParcial);
+
+    // Inline category picker: one shared <select> moves into the clicked cell.
+    var $picker = $("#cat-picker"), $home = $("#cat-picker-home"), csrf = "{{ csrf_token }}";
+    var abierta = null;  // {cell, html} while the picker is open
+
+    function guardarPicker() { $picker.prop("disabled", false).appendTo($home); }
+
+    function cerrar() {
+      if (!abierta) return;
+      var a = abierta;
+      abierta = null;
+      guardarPicker();
+      a.cell.innerHTML = a.html;
+    }
+
+    function pintar(cell, nombre, manual) {
+      var $c = $(cell).empty().append($("<span class='cat-nombre'>").text(nombre));
+      if (manual) {
+        $c.append($("<span class='manual-mark'>").attr({title: "Categoría asignada a mano", "aria-label": "Categoría asignada a mano"})
+                  .html("<svg class='ic ic-sm'><use href='#i-lock'/></svg>"));
+      }
+    }
+
+    $tabla.on("click", "td.cat-cell", function () {
+      if (abierta && abierta.cell === this) return;
+      cerrar();
+      abierta = {cell: this, html: this.innerHTML};
+      $picker.val(this.dataset.cat || "{{ auto }}");
+      $(this).empty().append($picker);
+      $picker.trigger("focus");
+    });
+    $picker.on("keydown", function (e) { if (e.key === "Escape") cerrar(); });
+    $picker.on("blur", cerrar);
+    $picker.on("change", function () {
+      var a = abierta, valor = this.value;
+      abierta = null;
+      guardarPicker();
+      a.cell.textContent = "Guardando…";
+      fetch(a.cell.dataset.url, {
+        method: "POST", credentials: "same-origin",
+        headers: {"X-CSRFToken": csrf, "Content-Type": "application/x-www-form-urlencoded"},
+        body: "categoria=" + encodeURIComponent(valor)
+      }).then(function (r) {
+        return r.json().then(function (j) { if (!r.ok || !j.ok) throw {servidor: j.error}; return j; });
+      }).then(function (j) {
+        pintar(a.cell, j.categoria, j.manual);
+        a.cell.dataset.cat = j.manual ? valor : "";
+        var tipo = $(a.cell).siblings("td.tipo")[0];
+        if (tipo && j.tipo) { tipo.textContent = j.tipo; $tabla.trigger("updateCell", [tipo, false]); }
+        $tabla.trigger("updateCell", [a.cell, false]);
+      }).catch(function (err) {
+        a.cell.innerHTML = a.html;
+        var $e = $("<span class='cat-error'>").text((err && err.servidor) || "No se pudo guardar.");
+        $(a.cell).append($e);
+        setTimeout(function () { $e.remove(); }, 4000);
+      });
+    });
   });
 </script>
 {% endblock %}

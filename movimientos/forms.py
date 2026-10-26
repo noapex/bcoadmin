@@ -2,7 +2,7 @@ import re
 
 from django import forms
 
-from .models import Categoria, Regla
+from .models import Categoria, Detalle, Regla
 from .services.classify import CATEGORIAS_RESERVADAS
 
 
@@ -83,4 +83,32 @@ class ReglaForm(forms.ModelForm):
                 re.compile(patron, re.I)
             except re.error as exc:
                 self.add_error("patron", f"Expresión regular inválida: {exc}")
+        return data
+
+
+AUTO = "auto"
+AUTO_LABEL = "— Automático (reglas) —"
+
+
+def opciones_categoria():
+    """[(pk, name indented by tree level)] in tree order, for category selects."""
+    return [(str(c.pk), "   " * c.level + c.name)
+            for c in Categoria.objects.order_by("tree_id", "lft")]
+
+
+class MovimientoForm(forms.Form):
+    categoria = forms.ChoiceField(label="Categoría")
+    tipo = forms.ChoiceField(choices=Detalle.TIPOS, required=False, label="Tipo",
+                             help_text="Con “Automático”, la categoría y el tipo vuelven a definirlos las reglas.")
+    excluir = forms.BooleanField(required=False, label="Excluir de los totales",
+                                 help_text="El movimiento sigue en la lista, pero no suma en totales ni en el tablero.")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["categoria"].choices = [(AUTO, AUTO_LABEL)] + opciones_categoria()
+
+    def clean(self):
+        data = super().clean()
+        if data.get("categoria") != AUTO and not data.get("tipo"):
+            self.add_error("tipo", "Elegí un tipo.")
         return data

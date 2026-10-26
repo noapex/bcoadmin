@@ -1,0 +1,55 @@
+{% extends 'movimientos/base.html' %}
+{% block title %}Editar movimiento{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back-link" href="{{ next }}"><svg class="ic ic-sm"><use href="#i-back"/></svg>Volver a movimientos</a>
+    <h1>Editar movimiento</h1>
+  </div>
+</div>
+<div class="card form-card">
+  <dl class="mov-resumen">
+    <div><dt>Fecha</dt><dd class="num">{{ d.fecha|date:"d/m/Y" }}</dd></div>
+    <div><dt>Fuente</dt><dd>{{ d.fuente }}</dd></div>
+    <div><dt>Cuenta</dt><dd>{{ d.cuenta }}</dd></div>
+    {% if d.cuota %}<div><dt>Cuota</dt><dd class="num">{{ d.cuota }}</dd></div>{% endif %}
+    <div class="ancho"><dt>Descripción</dt><dd>{{ d.descripcion }}</dd></div>
+    <div><dt>Monto</dt><dd class="num {% if d.monto < 0 %}neg{% else %}pos{% endif %}">{{ d.monto|floatformat:"2g" }} {{ d.moneda }}</dd></div>
+  </dl>
+  <form method="post" class="abm-form" id="mov-form">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
+    {% for field in form %}
+      <div class="abm-campo{% if field.widget_type == 'checkbox' %} check{% endif %}">
+        {% if field.widget_type == 'checkbox' %}
+          {{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% else %}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <select name="{{ field.html_name }}" id="{{ field.id_for_label }}">
+            {% for value, label in field.field.choices %}
+              <option value="{{ value }}"{% if field.value|stringformat:"s" == value|stringformat:"s" %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+        {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<p class="field-error"><svg class="ic ic-sm"><use href="#i-alert"/></svg>{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    <div class="form-actions">
+      <button class="btn" type="submit">Guardar</button>
+      <a class="btn btn-ghost" href="{{ next }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="editor-avanzado"><a href="{% url 'admin:movimientos_detalle_change' d.pk %}">Editor avanzado</a></p>
+</div>
+<script>
+  // "Automático" hands the kind back to the rules too: the tipo choice would be ignored.
+  (function () {
+    var cat = document.getElementById("id_categoria"), tipo = document.getElementById("id_tipo");
+    function sync() { tipo.disabled = cat.value === "{{ auto }}"; }
+    cat.addEventListener("change", sync);
+    sync();
+  })();
+</script>
+{% endblock %}
