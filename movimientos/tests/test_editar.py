@@ -1,11 +1,13 @@
 """Manual category assignment from the movements list and the simplified edit page."""
 from datetime import datetime
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from movimientos import views
 from movimientos.models import Categoria, Detalle, Regla
 
 
@@ -95,6 +97,48 @@ class QuickAssignDemoTests(TestCase):
         self.assertFalse(Detalle.objects.using("default").filter(categoria_manual=True).exists())
 
 
+class DemoWritesTests(TestCase):
+    databases = {"default", "demo"}
+
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_superuser("u", password="p"))
+        s = self.client.session
+        s["demo"] = True
+        s.save()
+        real_cat = Categoria.objects.using("default").create(name="Supermercado")
+        Regla.objects.using("default").create(patron="coto", categoria_id=real_cat.pk)
+        self.real = mov(desc="COTO REAL", categoria=real_cat, manual=True, db="default")
+        self.cat = Categoria.objects.using("demo").create(name="DemoSuper")
+        self.otra = Categoria.objects.using("demo").create(name="DemoOcio")
+        Regla.objects.using("demo").create(patron="coto", categoria_id=self.cat.pk)
+        self.d = mov(desc="COTO DEMO", categoria=self.otra, manual=True, db="demo")
+
+    def assert_default_untouched(self):
+        real = Detalle.objects.using("default").get(pk=self.real.pk)
+        self.assertEqual((real.categoria_manual, real.activo, real.modified), (True, True, self.real.modified))
+
+    def demo_row(self):
+        return Detalle.objects.using("demo").get(pk=self.d.pk)
+
+    def test_quick_assign_auto(self):
+        r = self.client.post(reverse("movimiento_categoria", args=[self.d.pk]), {"categoria": "auto"})
+        self.assertEqual(r.json()["categoria"], "DemoSuper")
+        d = self.demo_row()
+        self.assertEqual((d.categoria_id, d.categoria_manual), (self.cat.pk, False))
+        self.assert_default_untouched()
+
+    def test_edit_post_category_and_auto(self):
+        url = reverse("movimiento_editar", args=[self.d.pk])
+        r = self.client.post(url, {"categoria": self.otra.pk, "tipo": "interno", "excluir": "on"})
+        self.assertEqual(r.status_code, 302)
+        d = self.demo_row()
+        self.assertEqual((d.tipo, d.activo, d.categoria_manual), ("interno", False, True))
+        self.client.post(url, {"categoria": "auto"})
+        d = self.demo_row()
+        self.assertEqual((d.categoria_id, d.tipo, d.categoria_manual), (self.cat.pk, "gasto", False))
+        self.assert_default_untouched()
+
+
 class EditPageTests(Base):
     def url(self, nxt=None):
         u = reverse("movimiento_editar", args=[self.d.pk])
@@ -104,6 +148,33 @@ class EditPageTests(Base):
         base = {"categoria": self.d.categoria_id or "auto", "tipo": self.d.tipo}
         base.update(data)
         return self.client.post(self.url(nxt), base)
+
+    def test_tree_options_are_indented(self):
+        Categoria.objects.create(name="Chino", parent=self.super)
+        child = "\u00a0" * 3 + "\u2514 Chino"
+        self.assertContains(self.client.get(self.url()), f">{child}</option>")
+        self.assertContains(self.client.get("/movimientos/?mes=2026-09"), f">{child}</option>")
+        self.assertContains(self.client.get(self.url()), ">Supermercado</option>")
+
+    def test_preselects_real_state(self):
+        sel = '<option value="{}" selected>'
+        r = self.client.get(self.url())  # rules decided the category
+        self.assertContains(r, sel.format("auto"))
+        Detalle.objects.filter(pk=self.d.pk).update(categoria_manual=True)
+        self.assertContains(self.client.get(self.url()), sel.format(self.super.pk))
+
+    def test_save_does_not_overwrite_other_fields(self):
+        fetch = views.get_object_or_404
+
+        def stale(*args, **kwargs):  # another write lands between the view's fetch and its save
+            obj = fetch(*args, **kwargs)
+            Detalle.objects.filter(pk=obj.pk).update(descripcion="CAMBIADO EN OTRO LADO")
+            return obj
+
+        with mock.patch("movimientos.views.get_object_or_404", stale):
+            self.post({"categoria": self.otra.pk})
+        self.d.refresh_from_db()
+        self.assertEqual(self.d.descripcion, "CAMBIADO EN OTRO LADO")
 
     def test_get_shows_fields_and_admin_link(self):
         r = self.client.get(self.url())

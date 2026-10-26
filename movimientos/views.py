@@ -369,8 +369,12 @@ def movimiento_editar(request, pk):
     if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
                                            require_https=request.is_secure()):
         nxt = _lista_del_mes(d)
-    sin_categoria = NONE if d.categoria_manual else AUTO
-    initial = {"categoria": str(d.categoria_id) if d.categoria_id else sin_categoria, "tipo": d.tipo,
+    # Show the real state, like the list picker: rules ("auto"), a pinned category, or pinned to none.
+    if not d.categoria_manual:
+        actual = AUTO
+    else:
+        actual = str(d.categoria_id) if d.categoria_id else NONE
+    initial = {"categoria": actual, "tipo": d.tipo,
                "excluir": not d.activo}
     form = MovimientoForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
@@ -380,7 +384,7 @@ def movimiento_editar(request, pk):
             if data["categoria"] == AUTO:
                 # Category and kind both go back to the rules: the chosen tipo is ignored.
                 d.categoria_manual = False
-                d.save()
+                d.save(update_fields=["categoria_manual", "activo", "modified"])
                 clasificar_todo()
             else:
                 # "none" pins the row without a category: always manual, so rules can't fill it in.
@@ -388,7 +392,7 @@ def movimiento_editar(request, pk):
                 if data["categoria"] == NONE or cat_id != d.categoria_id or data["tipo"] != d.tipo:
                     d.categoria_manual = True
                 d.categoria_id, d.tipo = cat_id, data["tipo"]
-                d.save()
+                d.save(update_fields=["categoria", "categoria_manual", "tipo", "activo", "modified"])
         messages.success(request, "Movimiento actualizado.")
         return redirect(nxt)
     return render(request, "movimientos/movimiento_editar.html", {"d": d, "form": form, "next": nxt, "auto": AUTO})

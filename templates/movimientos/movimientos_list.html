@@ -140,22 +140,25 @@
     $tabla.on("click", "td.cat-cell", function () {
       if (abierta && abierta.cell === this) return;
       cerrar();
-      abierta = {cell: this, html: this.innerHTML, inicial: this.dataset.cat || "{{ auto }}", teclas: false};
+      abierta = {cell: this, html: this.innerHTML, inicial: this.dataset.cat || "{{ auto }}", paso: 0};
       $picker.val(abierta.inicial);
       $(this).empty().append($picker);
       $picker.trigger("focus");
     });
-    // Arrow keys on a closed <select> fire `change` on every step: while navigating by keyboard
-    // nothing is saved until Enter or blur; Esc cancels. Mouse picks save right away.
+    // Arrow/letter keys on a closed <select> fire `change` on every step: a change right after such a
+    // key is a step and waits for Enter or blur; Esc cancels. Any other change (mouse pick, Enter
+    // inside the native popup, which never reaches this keydown) saves right away.
     var NAVEGACION = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
+    var PASO_MS = 150;
     $picker.on("keydown", function (e) {
       if (!abierta) return;
       if (e.key === "Escape") { e.preventDefault(); cerrar(); }
       else if (e.key === "Enter") { e.preventDefault(); confirmar(); }
-      else if (NAVEGACION.indexOf(e.key) >= 0 || e.key.length === 1) abierta.teclas = true;
+      else if (NAVEGACION.indexOf(e.key) >= 0 || e.key.length === 1) abierta.paso = Date.now();
     });
-    $picker.on("mousedown", function () { if (abierta) abierta.teclas = false; });
-    $picker.on("change", function () { if (abierta && !abierta.teclas) confirmar(); });
+    $picker.on("change", function () {
+      if (abierta && Date.now() - abierta.paso > PASO_MS) confirmar();
+    });
     $picker.on("blur", function () { confirmar(); });
 
     // Save the picked value, or just close when it did not change.

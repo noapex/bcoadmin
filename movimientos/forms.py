@@ -93,8 +93,9 @@ NONE_LABEL = "— Sin categoría (fijado a mano) —"
 
 
 def opciones_categoria():
-    """[(pk, name indented by tree level)] in tree order, for category selects."""
-    return [(str(c.pk), "   " * c.level + c.name)
+    """[(pk, label)] in tree order, for category selects; children are indented with non-breaking
+    spaces (plain ones collapse inside <option>) and a "└ " marker."""
+    return [(str(c.pk), "\u00a0" * 3 * c.level + ("\u2514 " if c.level else "") + c.name)
             for c in Categoria.objects.order_by("tree_id", "lft")]
 
 
