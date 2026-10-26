@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.models import Session
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
@@ -268,6 +269,33 @@ class GenerarDemoTests(TestCase):
 
     def _run(self, seed=42):
         call_command("generar_demo", seed=seed, stdout=StringIO())
+
+    def test_escala_halves_every_amount(self):
+        def montos():
+            return list(Detalle.objects.using("demo").order_by("fecha", "descripcion", "fuente", "moneda", "pk")
+                        .values_list("monto", flat=True))
+
+        def totales():
+            return list(Resumen.objects.using("demo").order_by("fuente", "hasta").values_list("totales", flat=True))
+
+        call_command("generar_demo", seed=7, escala=1, stdout=StringIO())
+        completos, tot_completos = montos(), totales()
+        call_command("generar_demo", seed=7, escala=0.5, stdout=StringIO())
+        mitad, tot_mitad = montos(), totales()
+        self.assertEqual(len(mitad), len(completos))
+        for full, half in zip(completos, mitad):
+            self.assertLessEqual(abs(Decimal(full) / 2 - Decimal(half)), Decimal("0.01"))
+        for full, half in zip(tot_completos, tot_mitad):
+            for moneda, v in full.items():
+                self.assertLessEqual(abs(Decimal(v) / 2 - Decimal(half[moneda])), Decimal("0.01") * 400)
+
+    def test_default_escala_is_half(self):
+        self._run()
+        call_command("generar_demo", seed=42, escala=1, stdout=StringIO())
+        completo = Detalle.objects.using("demo").aggregate(s=Sum("monto"))["s"]
+        self._run()
+        mitad = Detalle.objects.using("demo").aggregate(s=Sum("monto"))["s"]
+        self.assertAlmostEqual(float(mitad), float(completo) / 2, delta=abs(float(completo)) * 0.001 + 50)
 
     def test_generates_rich_isolated_deterministic_data(self):
         antes = _snapshot("default")

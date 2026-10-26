@@ -143,8 +143,9 @@ def _meses(fin, n):
 
 
 class Generador:
-    def __init__(self, rng, fin, meses):
+    def __init__(self, rng, fin, meses, escala=Decimal("0.5")):
         self.rng, self.fin = rng, fin
+        self.escala = Decimal(str(escala))  # applied to every amount the generator writes
         self.meses = [(y, m + 1) for y, m in _meses(fin, meses)]
         self.filas, self.resumenes = [], []
 
@@ -157,7 +158,8 @@ class Generador:
             return None
         codigo = self._codigo() if codigo is None else codigo
         fila = Detalle(codigo=codigo, ref=norm_ref(codigo), fecha=datetime.combine(dia, datetime.min.time()),
-                       cuenta=cuenta, descripcion=descripcion, monto=_q(monto), fuente=fuente, moneda=moneda,
+                       cuenta=cuenta, descripcion=descripcion, monto=_q(Decimal(str(monto)) * self.escala),
+                       fuente=fuente, moneda=moneda,
                        tipo="gasto" if fuente in TARJETAS or monto < 0 else "ingreso", **extra)
         self.filas.append(fila)
         return fila
@@ -334,7 +336,7 @@ class Generador:
                     self.add(titular=TITULAR, **tarj, **fila)
             if k not in sin_resumen:
                 self.resumenes.append(Resumen(fuente=fuente, desde=desde, hasta=cierre, vencimiento=venc,
-                                              totales={m: str(v) for m, v in totales.items()}))
+                                              totales={m: str(_q(v * self.escala)) for m, v in totales.items()}))
             # Paid in full from the account on the due date.
             nombre = "Visa" if fuente == "visa" else "Amex"
             self.add("cuenta", "ARS", venc, f"Pago tarjeta {nombre}", -totales["ARS"], CUENTA_ARS)
@@ -349,6 +351,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--seed", type=int, default=42)
         parser.add_argument("--meses", type=int, default=18)
+        parser.add_argument("--escala", type=float, default=0.5,
+                            help="Factor applied to every generated amount (default 0.5).")
 
     def handle(self, *args, **opts):
         if DEMO_DB not in settings.DATABASES:
@@ -364,7 +368,7 @@ class Command(BaseCommand):
                 raise CommandError("The movimientos app is not routed to the demo database.")
             self._migrar()
             with transaction.atomic(using=DEMO_DB):
-                self._generar(opts["seed"], opts["meses"])
+                self._generar(opts["seed"], opts["meses"], opts["escala"])
                 self._resumen()
 
     def _migrar(self):
@@ -372,7 +376,7 @@ class Command(BaseCommand):
         if executor.migration_plan(executor.loader.graph.leaf_nodes()):
             call_command("migrate", database=DEMO_DB, interactive=False, verbosity=0)
 
-    def _generar(self, seed, meses):
+    def _generar(self, seed, meses, escala=0.5):
         for model in (Recurrente, Detalle, Resumen, Regla, Tarjeta, Categoria, DataFile):
             model.objects.using(DEMO_DB).all().delete()
         cats = {}
@@ -387,7 +391,7 @@ class Command(BaseCommand):
             Tarjeta(fuente=fu, nombre=c["nombre"], codigo=c["codigo"], patron_pago=c["patron_pago"])
             for fu, c in TARJETAS.items())
 
-        gen = Generador(random.Random(seed), date.today(), meses)
+        gen = Generador(random.Random(seed), date.today(), meses, escala)
         gen.cuentas()
         gen.tarjetas()
         Detalle.objects.using(DEMO_DB).bulk_create(gen.filas, batch_size=500)
