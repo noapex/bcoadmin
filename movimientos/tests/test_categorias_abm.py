@@ -257,7 +257,8 @@ class MigracionCategoriasTests(TestCase):
                    "Pagos de tarjeta", "Tarjeta sin detalle", "Servicios", "Transferencias"]
         for n in nombres:
             Categoria.objects.create(name=n)
-        mig.desmarcar_categorias(apps, None)
+        from django.db import connection
+        mig.desmarcar_categorias(apps, mock.Mock(connection=connection))
         self.assertEqual(sorted(Categoria.objects.filter(sugiere_recurrentes=True).values_list("name", flat=True)),
                          ["Servicios", "Transferencias"])
         self.assertEqual(Categoria.objects.count(), len(nombres))

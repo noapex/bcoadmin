@@ -5,7 +5,8 @@ from movimientos.parsers.base import norm_ref
 
 def backfill(apps, schema_editor):
     Detalle = apps.get_model("movimientos", "Detalle")
-    for d in Detalle.objects.all().iterator():
+    # Explicit alias: the demo router would otherwise send these queries to the default database.
+    for d in Detalle.objects.using(schema_editor.connection.alias).all().iterator():
         d.fuente = "cuenta"
         d.moneda = "ARS"
         d.ref = norm_ref(d.codigo)

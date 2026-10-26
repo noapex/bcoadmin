@@ -7,9 +7,10 @@ NOMBRES = ("impuestos", "compras con débito", "extracciones", "transf", "movimi
 
 
 def desmarcar_categorias(apps, schema_editor):
-    Categoria = apps.get_model("movimientos", "Categoria")
-    ids = [pk for pk, name in Categoria.objects.values_list("pk", "name") if name.strip().lower() in NOMBRES]
-    Categoria.objects.filter(pk__in=ids).update(sugiere_recurrentes=False)
+    # Explicit alias: the demo router would otherwise send these queries to the default database.
+    Categoria = apps.get_model("movimientos", "Categoria").objects.using(schema_editor.connection.alias)
+    ids = [pk for pk, name in Categoria.values_list("pk", "name") if name.strip().lower() in NOMBRES]
+    Categoria.filter(pk__in=ids).update(sugiere_recurrentes=False)
 
 
 class Migration(migrations.Migration):
