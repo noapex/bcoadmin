@@ -52,6 +52,12 @@ class QuickAssignTests(Base):
         r = self.client.post(self.url(d.pk), {"categoria": "auto"})
         self.assertEqual(r.json()["categoria"], "Sin categoría")
 
+    def test_none_pins_no_category(self):
+        r = self.client.post(self.url(), {"categoria": "none"})
+        self.assertEqual(r.json(), {"ok": True, "categoria": "Sin categoría", "manual": True, "tipo": "gasto"})
+        self.d.refresh_from_db()
+        self.assertEqual((self.d.categoria, self.d.categoria_manual), (None, True))
+
     def test_get_not_allowed(self):
         self.assertEqual(self.client.get(self.url()).status_code, 405)
 
@@ -123,6 +129,24 @@ class EditPageTests(Base):
         self.d.refresh_from_db()
         self.assertFalse(self.d.categoria_manual)
 
+    def test_manual_without_category_preselects_none_and_survives_save(self):
+        Detalle.objects.filter(pk=self.d.pk).update(categoria=None, categoria_manual=True)
+        self.d.refresh_from_db()
+        r = self.client.get(self.url())
+        self.assertContains(r, '<option value="none" selected>— Sin categoría (fijado a mano) —</option>', html=True)
+        self.post({"categoria": "none"})
+        self.d.refresh_from_db()
+        self.assertEqual((self.d.categoria, self.d.categoria_manual), (None, True))
+
+    def test_none_pins_rule_matched_row(self):
+        self.post({"categoria": "none"})
+        self.d.refresh_from_db()
+        self.assertEqual((self.d.categoria, self.d.categoria_manual), (None, True))
+        from movimientos.services.classify import clasificar_todo
+        clasificar_todo()
+        self.d.refresh_from_db()
+        self.assertIsNone(self.d.categoria)
+
     def test_auto_resets_and_applies_rule(self):
         Detalle.objects.filter(pk=self.d.pk).update(categoria=self.otra, tipo="interno", categoria_manual=True)
         self.d.refresh_from_db()
@@ -177,9 +201,16 @@ class ListTests(Base):
         r = self.client.get("/movimientos/?mes=2026-09")
         self.assertContains(r, 'class="manual-mark"', count=1)
 
+    def test_header_count_without_excluded(self):
+        r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertContains(r, "1 movimiento ·")
+        self.assertNotContains(r, " excluido")
+
     def test_inactive_rows_shown_but_not_totalled(self):
         mov(desc="EXCLUIDO", monto="-50", activo=False)
+        mov(desc="EXCLUIDO 2", monto="-60", activo=False)
         r = self.client.get("/movimientos/?mes=2026-09")
+        self.assertContains(r, "1 movimiento · 2 excluidos ·")
         self.assertContains(r, "EXCLUIDO")
         self.assertContains(r, ">excluido<")
         self.assertEqual(r.context["total"], Decimal("-100"))

@@ -88,6 +88,8 @@ class ReglaForm(forms.ModelForm):
 
 AUTO = "auto"
 AUTO_LABEL = "— Automático (reglas) —"
+NONE = "none"  # no category, pinned by hand (rules won't touch it)
+NONE_LABEL = "— Sin categoría (fijado a mano) —"
 
 
 def opciones_categoria():
@@ -105,7 +107,7 @@ class MovimientoForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["categoria"].choices = [(AUTO, AUTO_LABEL)] + opciones_categoria()
+        self.fields["categoria"].choices = [(AUTO, AUTO_LABEL), (NONE, NONE_LABEL)] + opciones_categoria()
 
     def clean(self):
         data = super().clean()

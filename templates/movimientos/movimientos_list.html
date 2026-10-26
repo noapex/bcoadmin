@@ -12,7 +12,7 @@
 <div class="page-head">
   <div>
     <h1>Movimientos</h1>
-    <p class="sub">{{ movimientos|length }} movimiento{{ movimientos|length|pluralize }} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b><span id="parcial" hidden> · Parcial <b class="num"></b> <span class="parcial-n"></span></span></p>
+    <p class="sub">{{ n_activos }} movimiento{{ n_activos|pluralize }}{% if excluidos %} · {{ excluidos }} excluido{{ excluidos|pluralize }}{% endif %} · Total <b class="num {% if total < 0 %}neg{% else %}pos{% endif %}">{{ total|floatformat:"2g" }}</b><span id="parcial" hidden> · Parcial <b class="num"></b> <span class="parcial-n"></span></span></p>
   </div>
 </div>
 <div class="toolbar">
@@ -60,7 +60,7 @@
       <td class="num">{{ d.cuota }}</td>
       <td class="r {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap" data-monto="{{ d.monto|default_if_none:0|stringformat:'s' }}">{{ d.monto|floatformat:"2g" }}</td>
       <td class="tipo">{{ d.tipo }}</td>
-      <td class="cat-cell" title="Cambiar categoría" data-url="{% url 'movimiento_categoria' d.pk %}" data-cat="{% if d.categoria_manual and d.categoria_id %}{{ d.categoria_id }}{% endif %}"><span class="cat-nombre">{{ d.categoria.name|default:"Sin categoría" }}</span>{% if d.categoria_manual %}<span class="manual-mark" title="Categoría asignada a mano" aria-label="Categoría asignada a mano"><svg class="ic ic-sm"><use href="#i-lock"/></svg></span>{% endif %}</td>
+      <td class="cat-cell" title="Cambiar categoría" data-url="{% url 'movimiento_categoria' d.pk %}" data-cat="{% if d.categoria_manual %}{{ d.categoria_id|default:none }}{% endif %}"><span class="cat-nombre">{{ d.categoria.name|default:"Sin categoría" }}</span>{% if d.categoria_manual %}<span class="manual-mark" title="Categoría asignada a mano" aria-label="Categoría asignada a mano"><svg class="ic ic-sm"><use href="#i-lock"/></svg></span>{% endif %}</td>
       <td><a class="icon-btn" href="{% url 'movimiento_editar' d.pk %}?next={{ request.get_full_path|urlencode }}" title="Editar" aria-label="Editar"><svg class="ic"><use href="#i-edit"/></svg></a></td>
     </tr>
   {% empty %}
@@ -77,6 +77,7 @@
 <div id="cat-picker-home" hidden>
   <select id="cat-picker" aria-label="Categoría">
     <option value="{{ auto }}">{{ auto_label }}</option>
+    <option value="{{ none }}">{{ none_label }}</option>
     {% for value, label in opciones_categoria %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
   </select>
 </div>
@@ -139,15 +140,30 @@
     $tabla.on("click", "td.cat-cell", function () {
       if (abierta && abierta.cell === this) return;
       cerrar();
-      abierta = {cell: this, html: this.innerHTML};
-      $picker.val(this.dataset.cat || "{{ auto }}");
+      abierta = {cell: this, html: this.innerHTML, inicial: this.dataset.cat || "{{ auto }}", teclas: false};
+      $picker.val(abierta.inicial);
       $(this).empty().append($picker);
       $picker.trigger("focus");
     });
-    $picker.on("keydown", function (e) { if (e.key === "Escape") cerrar(); });
-    $picker.on("blur", cerrar);
-    $picker.on("change", function () {
-      var a = abierta, valor = this.value;
+    // Arrow keys on a closed <select> fire `change` on every step: while navigating by keyboard
+    // nothing is saved until Enter or blur; Esc cancels. Mouse picks save right away.
+    var NAVEGACION = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
+    $picker.on("keydown", function (e) {
+      if (!abierta) return;
+      if (e.key === "Escape") { e.preventDefault(); cerrar(); }
+      else if (e.key === "Enter") { e.preventDefault(); confirmar(); }
+      else if (NAVEGACION.indexOf(e.key) >= 0 || e.key.length === 1) abierta.teclas = true;
+    });
+    $picker.on("mousedown", function () { if (abierta) abierta.teclas = false; });
+    $picker.on("change", function () { if (abierta && !abierta.teclas) confirmar(); });
+    $picker.on("blur", function () { confirmar(); });
+
+    // Save the picked value, or just close when it did not change.
+    function confirmar() {
+      if (!abierta) return;
+      var valor = $picker.val();
+      if (valor === abierta.inicial) { cerrar(); return; }
+      var a = abierta;
       abierta = null;
       guardarPicker();
       a.cell.textContent = "Guardando…";
@@ -169,7 +185,7 @@
         $(a.cell).append($e);
         setTimeout(function () { $e.remove(); }, 4000);
       });
-    });
+    }
   });
 </script>
 {% endblock %}

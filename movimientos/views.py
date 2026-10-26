@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST
 
 from . import demo
 from .demo import db_actual
-from .forms import AUTO, AUTO_LABEL, FileFieldForm, MovimientoForm, opciones_categoria
+from .forms import AUTO, AUTO_LABEL, NONE, NONE_LABEL, FileFieldForm, MovimientoForm, opciones_categoria
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
@@ -307,12 +307,15 @@ def movimientos_list(request):
         tarjeta = ""
     qs = qs.select_related("categoria").order_by("-fecha", "-pk")
     total = qs.filter(activo=True).aggregate(t=Sum("monto"))["t"] or Decimal(0)
+    excluidos = qs.filter(activo=False).count()
     # Non-period filters, carried by the period form and the currency toggle.
     filtros = [(k, v) for k, v in [("categoria", categoria), ("tipo", tipo), ("fuente", fuente),
                                    ("tarjeta", tarjeta), ("recurrente", recurrente),
                                    ("internos", "1" if internos else "")] if v]
     return render(request, "movimientos/movimientos_list.html", {
-        "movimientos": qs, "total": total, "moneda": moneda, "desde": desde, "hasta": hasta,
+        "movimientos": qs, "total": total, "excluidos": excluidos,
+        # len() evaluates qs once; the template loop reuses its result cache.
+        "n_activos": len(qs) - excluidos, "moneda": moneda, "desde": desde, "hasta": hasta,
         "categoria": categoria, "tipo": tipo, "recurrente": recurrente, "fuente": fuente,
         "tarjeta": tarjeta,
         "categoria_obj": cat, "recurrente_obj": rec,
@@ -320,6 +323,7 @@ def movimientos_list(request):
         "internos": internos, **_toggle_internos(request),
         **_navegar_meses(request, desde, hasta, stats.ultimo_mes_con_datos(moneda)),
         "opciones_categoria": opciones_categoria(), "auto": AUTO, "auto_label": AUTO_LABEL,
+        "none": NONE, "none_label": NONE_LABEL,
     })
 
 
@@ -340,6 +344,9 @@ def movimiento_categoria(request, pk):
             d.save(update_fields=["categoria_manual", "modified"])
             clasificar_todo()  # only touches non-manual rows
         d.refresh_from_db()
+    elif valor == NONE:
+        d.categoria, d.categoria_manual = None, True
+        d.save(update_fields=["categoria", "categoria_manual", "modified"])
     elif valor.isdigit():
         cat = Categoria.objects.filter(pk=int(valor)).first()
         if cat is None:
@@ -362,7 +369,8 @@ def movimiento_editar(request, pk):
     if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
                                            require_https=request.is_secure()):
         nxt = _lista_del_mes(d)
-    initial = {"categoria": str(d.categoria_id) if d.categoria_id else AUTO, "tipo": d.tipo,
+    sin_categoria = NONE if d.categoria_manual else AUTO
+    initial = {"categoria": str(d.categoria_id) if d.categoria_id else sin_categoria, "tipo": d.tipo,
                "excluir": not d.activo}
     form = MovimientoForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
@@ -375,8 +383,9 @@ def movimiento_editar(request, pk):
                 d.save()
                 clasificar_todo()
             else:
-                cat_id = int(data["categoria"])
-                if cat_id != d.categoria_id or data["tipo"] != d.tipo:
+                # "none" pins the row without a category: always manual, so rules can't fill it in.
+                cat_id = None if data["categoria"] == NONE else int(data["categoria"])
+                if data["categoria"] == NONE or cat_id != d.categoria_id or data["tipo"] != d.tipo:
                     d.categoria_manual = True
                 d.categoria_id, d.tipo = cat_id, data["tipo"]
                 d.save()
