@@ -74,6 +74,27 @@ def _con_celdas(tabla):
     return tabla
 
 
+def _por_tipo_de_categoria(tabla, para):
+    """Keep the rows of categories meant for `para` ("ingreso"/"egreso", or "ambas"), plus any row
+    with an amount (so totals still add up) and the ancestors of kept rows (so the tree holds)."""
+    cats = {c["id"]: c for c in Categoria.objects.values("id", "parent_id", "tipo")}
+    keep = set()
+    for f in tabla["filas"]:
+        cid = f["id"]
+        if cid is None:
+            if f["total"]:
+                keep.add(None)
+        elif f["total"] or cats[cid]["tipo"] in (para, "ambas"):
+            while cid is not None and cid not in keep:
+                keep.add(cid)
+                cid = cats[cid]["parent_id"]
+    hijos = {cats[c]["parent_id"] for c in keep if c is not None}
+    tabla["filas"] = [f for f in tabla["filas"] if f["id"] in keep]
+    for f in tabla["filas"]:
+        f["tiene_hijos"] = f["id"] in hijos
+    return tabla
+
+
 def _f(value):
     return float(value) if value is not None else None
 
@@ -231,12 +252,10 @@ def categorias(request):
     ctx = {"moneda": moneda, "vacio": ultimo is None}
     if ultimo is not None:
         desde, hasta = _periodo(request, ultimo, meses=6)
-        ingresos = stats.ingresos_por_categoria(moneda, desde, hasta)
-        # Income touches few categories: list only those with income in the period.
-        ingresos["filas"] = [f for f in ingresos["filas"] if f["total"]]
+        gastos = _por_tipo_de_categoria(stats.gastos_por_categoria(moneda, desde, hasta), "egreso")
+        ingresos = _por_tipo_de_categoria(stats.ingresos_por_categoria(moneda, desde, hasta), "ingreso")
         ctx.update({"desde": desde, "hasta": hasta,
-                    "tabla": _con_celdas(stats.gastos_por_categoria(moneda, desde, hasta)),
-                    "tabla_ingresos": _con_celdas(ingresos)})
+                    "tabla": _con_celdas(gastos), "tabla_ingresos": _con_celdas(ingresos)})
     return render(request, "movimientos/categorias.html", ctx)
 
 

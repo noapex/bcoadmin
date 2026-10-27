@@ -401,6 +401,22 @@ class CategoriasPageTests(TestCase):
         self.assertContains(r, f"/movimientos/?moneda=ARS&mes=2026-09&tipo=ingreso&categoria={ate.pk}")
         self.assertContains(r, "2.110.004,00")
 
+    def test_each_table_lists_categories_of_its_type(self):
+        sueldo = Categoria.objects.create(name="Sueldo", tipo="ingreso")
+        Categoria.objects.create(name="Transf", tipo="ambas")
+        Categoria.objects.create(name="Supermercado")
+        mov(2026, 9, 1, "500", categoria=sueldo, desc="HABERES")
+        mov(2026, 9, 2, "40", categoria=self.child, desc="REINTEGRO EDESUR")  # income in an egreso category
+        r = self.client.get(reverse("categorias"))
+        gastos = [f["nombre"] for f in r.context["tabla"]["filas"]]
+        ingresos = [f["nombre"] for f in r.context["tabla_ingresos"]["filas"]]
+        self.assertEqual(gastos, ["Servicios", "Luz", "Supermercado", "Transf", "Sin categoría"])
+        # Zero ingreso categories are listed; an egreso one only while it has income (and its parent).
+        self.assertEqual(ingresos, ["Servicios", "Luz", "Sueldo", "Transf"])
+        filas = {f["nombre"]: f for f in r.context["tabla_ingresos"]["filas"]}
+        self.assertTrue(filas["Servicios"]["tiene_hijos"])
+        self.assertEqual(r.context["tabla_ingresos"]["total"]["total"], Decimal("540"))
+
     def test_empty_db(self):
         Detalle.objects.all().delete()
         r = self.client.get(reverse("categorias"))
