@@ -152,7 +152,7 @@ class IsolationTests(DemoClientBase):
         self.set_demo(True)
         cat = Categoria.objects.using("demo").get()
         r = self.client.post(f"/admin/movimientos/categoria/{cat.pk}/change/",
-                             {"name": "Renombrada", "parent": "", "sugiere_recurrentes": "on",
+                             {"name": "Renombrada", "parent": "", "tipo": "egreso", "sugiere_recurrentes": "on",
                               "_save": "Guardar"})
         self.assertEqual(r.status_code, 302)
         self.assertEqual(Categoria.objects.using("demo").get().name, "Renombrada")

@@ -117,6 +117,9 @@ class Categoria(MPTTModel):
     parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     # Effective only if every ancestor also allows it (see recurring.categorias_sin_recurrentes).
     sugiere_recurrentes = models.BooleanField('Puede tener recurrentes', default=True)
+    TIPOS = [("egreso", "Egreso"), ("ingreso", "Ingreso"), ("ambas", "Ambas")]
+    # Which movements it applies to: category pickers only offer it for that sign.
+    tipo = models.CharField('Para movimientos de', max_length=7, choices=TIPOS, default="egreso")
 
     class MPTTMeta:
         order_insertion_by = ['name']

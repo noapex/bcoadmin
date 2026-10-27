@@ -24,7 +24,7 @@
   {% for i in items %}
     <tr class="{% if i.cat.level == 0 %}raiz{% endif %}">
       <td style="padding-left:calc(14px + {% widthratio i.cat.level 1 24 %}px); white-space:nowrap">
-        <span class="cat-name">{% if i.cat.level %}<span class="tree" aria-hidden="true">└</span>{% endif %}{{ i.cat.name }}{% if i.reservada %} <span class="badge b-accent">del sistema</span>{% endif %}{% if not i.cat.sugiere_recurrentes %} <span class="badge" title="Sus movimientos y los de sus subcategorías no se sugieren como recurrentes">sin recurrentes</span>{% endif %}</span>
+        <span class="cat-name">{% if i.cat.level %}<span class="tree" aria-hidden="true">└</span>{% endif %}{{ i.cat.name }}{% if i.reservada %} <span class="badge b-accent">del sistema</span>{% endif %}{% if i.cat.tipo == 'ingreso' %} <span class="badge b-pos">ingreso</span>{% elif i.cat.tipo == 'ambas' %} <span class="badge" title="Se ofrece para ingresos y egresos">ingreso y egreso</span>{% endif %}{% if not i.cat.sugiere_recurrentes %} <span class="badge" title="Sus movimientos y los de sus subcategorías no se sugieren como recurrentes">sin recurrentes</span>{% endif %}</span>
       </td>
       <td class="r">{{ i.movimientos }}</td>
       <td style="min-width:280px">

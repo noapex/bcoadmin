@@ -78,7 +78,7 @@
   <select id="cat-picker" aria-label="Categoría">
     <option value="{{ auto }}">{{ auto_label }}</option>
     <option value="{{ none }}">{{ none_label }}</option>
-    {% for value, label in opciones_categoria %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+    {% for value, label, tipo in opciones_categoria %}<option value="{{ value }}" data-tipo="{{ tipo }}">{{ label }}</option>{% endfor %}
   </select>
 </div>
 <script>
@@ -141,6 +141,13 @@
       if (abierta && abierta.cell === this) return;
       cerrar();
       abierta = {cell: this, html: this.innerHTML, inicial: this.dataset.cat || "{{ auto }}", paso: 0};
+      // Only categories for this row's sign (plus the current one); `disabled` because Safari ignores hidden options.
+      var para = parseFloat($(this).siblings("td[data-monto]").attr("data-monto")) > 0 ? "ingreso" : "egreso";
+      var inicial = abierta.inicial;
+      $picker.find("option[data-tipo]").each(function () {
+        var fuera = this.dataset.tipo !== "ambas" && this.dataset.tipo !== para && this.value !== inicial;
+        this.hidden = this.disabled = fuera;
+      });
       $picker.val(abierta.inicial);
       $(this).empty().append($picker);
       $picker.trigger("focus");

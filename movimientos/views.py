@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST
 
 from . import demo
 from .demo import db_actual
-from .forms import AUTO, AUTO_LABEL, NONE, NONE_LABEL, FileFieldForm, MovimientoForm, opciones_categoria
+from .forms import AUTO, AUTO_LABEL, NONE, NONE_LABEL, FileFieldForm, MovimientoForm, opciones_categoria_con_tipo
 from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
@@ -322,7 +322,7 @@ def movimientos_list(request):
         "filtros": filtros, "filtros_qs": urlencode(filtros),
         "internos": internos, **_toggle_internos(request),
         **_navegar_meses(request, desde, hasta, stats.ultimo_mes_con_datos(moneda)),
-        "opciones_categoria": opciones_categoria(), "auto": AUTO, "auto_label": AUTO_LABEL,
+        "opciones_categoria": opciones_categoria_con_tipo(), "auto": AUTO, "auto_label": AUTO_LABEL,
         "none": NONE, "none_label": NONE_LABEL,
     })
 
@@ -376,7 +376,8 @@ def movimiento_editar(request, pk):
         actual = str(d.categoria_id) if d.categoria_id else NONE
     initial = {"categoria": actual, "tipo": d.tipo,
                "excluir": not d.activo}
-    form = MovimientoForm(request.POST or None, initial=initial)
+    para = "ingreso" if (d.monto or 0) > 0 else "egreso"
+    form = MovimientoForm(request.POST or None, initial=initial, para=para, incluir=d.categoria_id)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         d.activo = not data["excluir"]

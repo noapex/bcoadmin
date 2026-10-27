@@ -1,6 +1,7 @@
 import re
 
 from django import forms
+from django.db.models import Q
 
 from .models import Categoria, Detalle, Regla
 from .services.classify import CATEGORIAS_RESERVADAS
@@ -30,7 +31,7 @@ class FileFieldForm(forms.Form):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ["name", "parent", "sugiere_recurrentes"]
+        fields = ["name", "parent", "tipo", "sugiere_recurrentes"]
         labels = {"name": "Nombre", "parent": "Categoría padre"}
         help_texts = {"sugiere_recurrentes": "Desmarcalo para impuestos, transferencias o compras sueltas: "
                                              "sus movimientos (y los de sus subcategorías) no se sugieren "
@@ -41,6 +42,10 @@ class CategoriaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["parent"].required = False
         self.fields["parent"].empty_label = "(ninguna: categoría principal)"
+        self.fields["tipo"].required = False
+
+    def clean_tipo(self):
+        return self.cleaned_data["tipo"] or "egreso"
 
     def clean_name(self):
         name = self.cleaned_data["name"]
@@ -92,11 +97,23 @@ NONE = "none"  # no category, pinned by hand (rules won't touch it)
 NONE_LABEL = "— Sin categoría (fijado a mano) —"
 
 
-def opciones_categoria():
+def _arbol(para=None, incluir=None):
+    qs = Categoria.objects.order_by("tree_id", "lft")
+    if para:
+        qs = qs.filter(Q(tipo__in=(para, "ambas")) | Q(pk=incluir))
+    return [(c, "\u00a0" * 3 * c.level + ("\u2514 " if c.level else "") + c.name) for c in qs]
+
+
+def opciones_categoria(para=None, incluir=None):
     """[(pk, label)] in tree order, for category selects; children are indented with non-breaking
-    spaces (plain ones collapse inside <option>) and a "└ " marker."""
-    return [(str(c.pk), "\u00a0" * 3 * c.level + ("\u2514 " if c.level else "") + c.name)
-            for c in Categoria.objects.order_by("tree_id", "lft")]
+    spaces (plain ones collapse inside <option>) and a "└ " marker. `para` ("ingreso"/"egreso")
+    keeps only categories for that sign, plus the `incluir` pk (the current one)."""
+    return [(str(c.pk), label) for c, label in _arbol(para, incluir)]
+
+
+def opciones_categoria_con_tipo():
+    """[(pk, label, tipo)] for the list picker, which filters by each row's sign client-side."""
+    return [(str(c.pk), label, c.tipo) for c, label in _arbol()]
 
 
 class MovimientoForm(forms.Form):
@@ -106,9 +123,10 @@ class MovimientoForm(forms.Form):
     excluir = forms.BooleanField(required=False, label="Excluir de los totales",
                                  help_text="El movimiento sigue en la lista, pero no suma en totales ni en el tablero.")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, para=None, incluir=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["categoria"].choices = [(AUTO, AUTO_LABEL), (NONE, NONE_LABEL)] + opciones_categoria()
+        self.fields["categoria"].choices = ([(AUTO, AUTO_LABEL), (NONE, NONE_LABEL)]
+                                            + opciones_categoria(para, incluir))
 
     def clean(self):
         data = super().clean()
