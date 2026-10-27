@@ -46,6 +46,43 @@
     </table>
     </div>
     </section>
+
+    {% for r in reports %}{% if r.filas %}
+    <section class="card table-card">
+    <details class="plegable" open>
+    <summary class="card-title" style="padding:16px 18px">
+        <svg class="ic ic-sm chev"><use href="#i-chevron"/></svg>
+        {{ r.archivo }} · {{ r.filas|length }} movimiento{{ r.filas|length|pluralize }} leído{{ r.filas|length|pluralize }}
+    </summary>
+    <div class="tabla-scroll">
+    <table class="t">
+        <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Descripción</th>
+            <th>Categoría</th>
+            <th>Tipo</th>
+            <th class="r">Monto</th>
+            <th>Estado</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for estado, d in r.filas %}
+            <tr>
+                <td style="white-space:nowrap">{{ d.fecha|date:"d/m/Y" }}</td>
+                <td>{{ d.descripcion }}</td>
+                <td>{{ d.categoria.name|default:"Sin categoría" }}</td>
+                <td><span class="badge {% if d.tipo == 'ingreso' %}b-pos{% elif d.tipo == 'gasto' %}b-neg{% endif %}"{% if d.tipo == 'interno' %} title="Los internos se ocultan en Movimientos salvo con «Con internos»"{% endif %}>{{ d.get_tipo_display }}</span></td>
+                <td class="r num {% if d.monto < 0 %}neg{% else %}pos{% endif %}" style="white-space:nowrap">{{ d.moneda }} {{ d.monto|floatformat:"2g" }}</td>
+                <td>{% if estado == 'nuevo' %}<span class="badge st-pagado">nuevo</span>{% else %}<a class="badge" href="{% url 'movimiento_editar' d.pk %}" title="Coincide con un movimiento ya importado">ya estaba</a>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    </details>
+    </section>
+    {% endif %}{% endfor %}
     {% endif %}
 
     {% if form %}

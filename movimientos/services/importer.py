@@ -32,6 +32,9 @@ class ImportReport:
     omitidas: int = 0
     errores: list[str] = field(default_factory=list)
     rechazado: bool = False
+    # (estado, Detalle pk) per parsed movement, in file order; estado is "nuevo" or "duplicado"
+    # (the pk is then the row it matched).
+    filas: list[tuple[str, int]] = field(default_factory=list)
 
 
 def _aware(day):
@@ -106,6 +109,7 @@ def import_file(path, datafile=None):
                 if dup:
                     consumed.add(dup.pk)
                     report.duplicados += 1
+                    report.filas.append(("duplicado", dup.pk))
                     continue
                 row = Detalle.objects.create(
                     codigo=p.codigo, fecha=_aware(p.fecha), cuenta=p.cuenta,
@@ -115,6 +119,7 @@ def import_file(path, datafile=None):
                     archivo=datafile)
                 consumed.add(row.pk)
                 report.nuevos += 1
+                report.filas.append(("nuevo", row.pk))
             for s in result.resumenes:
                 Resumen.objects.update_or_create(
                     fuente=s.fuente, hasta=s.hasta,
@@ -122,6 +127,7 @@ def import_file(path, datafile=None):
                                   totales={k: str(v) for k, v in s.totales.items()}))
     except Exception as exc:
         report.nuevos = report.duplicados = 0
+        report.filas = []
         report.errores.append(f"{type(exc).__name__}: {exc}")
         report.rechazado = True
     return report

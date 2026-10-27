@@ -450,5 +450,10 @@ def upload(request):
                         out.write(chunk)
                 paths.append(str(path))
             reports = import_files(paths)
+        # Loaded after import so the category and tipo reflect the classification just run.
+        filas = Detalle.objects.select_related('categoria').in_bulk(
+            [pk for r in reports for _, pk in r.filas])
+        for r in reports:
+            r.filas = [(estado, filas[pk]) for estado, pk in r.filas if pk in filas]
         return render(request, 'movimientos/upload.html', {'form': form, 'reports': reports})
     return render(request, 'movimientos/upload.html', {'form': form})

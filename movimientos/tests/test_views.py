@@ -55,6 +55,24 @@ class UploadViewTests(TestCase):
         self.assertEqual(Detalle.objects.count(), reports[0].nuevos)
         self.assertEqual(DataFile.objects.count(), 1)
 
+    def test_post_lists_parsed_movements(self):
+        r = self.client.post(reverse("upload"), {"file_field": [self._xlsx_upload()]})
+        report = r.context["reports"][0]
+        self.assertEqual(len(report.filas), report.nuevos)
+        self.assertTrue(all(estado == "nuevo" for estado, _ in report.filas))
+        first = report.filas[0][1]
+        self.assertIsInstance(first, Detalle)
+        self.assertContains(r, first.descripcion)
+
+    def test_reupload_marks_duplicates(self):
+        self.client.post(reverse("upload"), {"file_field": [self._xlsx_upload()]})
+        r = self.client.post(reverse("upload"), {"file_field": [self._xlsx_upload()]})
+        report = r.context["reports"][0]
+        self.assertEqual(report.nuevos, 0)
+        self.assertEqual(len(report.filas), report.duplicados)
+        self.assertTrue(all(estado == "duplicado" for estado, _ in report.filas))
+        self.assertContains(r, "ya estaba")
+
     def test_post_empty_shows_message(self):
         r = self.client.post(reverse("upload"), {})
         self.assertEqual(r.status_code, 200)
