@@ -102,6 +102,18 @@ class CategoriaTests(AbmBase):
         manual.refresh_from_db()
         self.assertEqual((manual.categoria, manual.categoria_manual), (None, False))
 
+    def test_edit_page_offers_delete(self):
+        r = self.client.get(reverse("categoria_editar", args=[self.auto.pk]))
+        self.assertContains(r, f'action="{reverse("categoria_borrar", args=[self.auto.pk])}"')
+        self.assertContains(r, "Borrar categoría")
+
+    def test_edit_page_explains_why_it_cannot_delete(self):
+        r = self.client.get(reverse("categoria_editar", args=[self.servicios.pk]))
+        self.assertNotContains(r, f'action="{reverse("categoria_borrar", args=[self.servicios.pk])}"')
+        self.assertContains(r, "tiene subcategorías")
+        r = self.client.get(reverse("categoria_editar", args=[self.reservada.pk]))
+        self.assertNotContains(r, "Borrar categoría")
+
     def test_refuse_delete_with_children(self):
         r = self.post("categoria_borrar", None, self.servicios.pk)
         self.assertContains(r, "tiene subcategorías")

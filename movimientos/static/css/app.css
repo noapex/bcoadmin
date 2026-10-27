@@ -386,6 +386,7 @@ label { color: var(--text); }
 }
 .icon-btn .ic { width: 16px; height: 16px; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text-strong); border-color: var(--line); }
+.icon-btn.danger { color: rgba(251, 113, 133, .75); }
 .icon-btn.danger:hover { background: var(--neg-soft); color: var(--neg); border-color: rgba(251, 113, 133, .3); }
 .icon-btn.sm { width: 26px; height: 26px; border-radius: 7px; }
 .icon-btn.sm .ic { width: 14px; height: 14px; }

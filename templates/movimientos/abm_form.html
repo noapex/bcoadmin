@@ -34,6 +34,13 @@
   <div class="form-actions">
     <button class="btn" type="submit">Guardar</button>
     <a class="btn btn-ghost" href="{% url 'categorias_gestionar' %}">Cancelar</a>
+    {% if borrar.url %}
+    <button class="btn btn-danger" type="submit" form="form-borrar" style="margin-left:auto"><svg class="ic ic-sm"><use href="#i-trash"/></svg>Borrar categoría</button>
+    {% endif %}
   </div>
+  {% if borrar.motivo %}<small class="help">{{ borrar.motivo }}</small>{% endif %}
 </form>
+{% if borrar.url %}
+<form id="form-borrar" method="post" action="{{ borrar.url }}" hidden onsubmit="return confirm(this.dataset.confirmar);" data-confirmar="{{ borrar.confirmar }}">{% csrf_token %}</form>
+{% endif %}
 {% endblock %}

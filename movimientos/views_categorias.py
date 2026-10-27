@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .demo import db_actual
@@ -71,7 +72,21 @@ def _categoria_form(request, cat):
 
         return _aplicar(request, guardar, f"Categoría “{form.cleaned_data['name']}” guardada")
     titulo = f"Editar categoría “{cat.name}”" if cat else "Nueva categoría"
-    return render(request, "movimientos/abm_form.html", {"form": form, "titulo": titulo})
+    return render(request, "movimientos/abm_form.html",
+                  {"form": form, "titulo": titulo, "borrar": _borrar_desde_form(cat)})
+
+
+def _borrar_desde_form(cat):
+    """Delete action for the edit page: None for new or system categories; otherwise the URL and
+    confirmation text, or the reason it is blocked."""
+    if cat is None or cat.name in CATEGORIAS_RESERVADAS:
+        return None
+    if cat.get_children().exists():
+        return {"motivo": "No se puede borrar: tiene subcategorías. Movelas o borralas primero."}
+    manuales = Detalle.objects.filter(categoria=cat, categoria_manual=True).count()
+    aviso = _aviso_manuales(manuales)
+    return {"url": reverse("categoria_borrar", args=[cat.pk]),
+            "confirmar": f"¿Borrar la categoría «{cat.name}» y sus reglas?" + (f" {aviso}" if aviso else "")}
 
 
 def categoria_nueva(request):
