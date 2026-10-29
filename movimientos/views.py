@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Sum
 from django.http import Http404, JsonResponse
@@ -420,6 +421,8 @@ def movimiento_editar(request, pk):
 
 @require_POST
 def demo_toggle(request):
+    if demo.solo_demo(request.user):
+        raise PermissionDenied
     activo = not request.session.get(demo.SESSION_KEY, False)
     request.session[demo.SESSION_KEY] = activo
     # Pending messages belong to the other database: drop them.

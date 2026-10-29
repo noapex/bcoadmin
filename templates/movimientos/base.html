@@ -40,6 +40,7 @@
       <span class="nav-sep" aria-hidden="true"></span>
       <a href="/admin/"><svg class="ic"><use href="#i-shield"/></svg>Admin</a>
     </nav>
+    {% if not solo_demo %}
     <form method="post" action="{% url 'demo_toggle' %}" class="demo-form">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -49,6 +50,7 @@
         <span class="demo-track" aria-hidden="true"><span class="demo-knob"></span></span>Modo demo
       </button>
     </form>
+    {% endif %}
   </div>
 </header>
 {% endblock %}

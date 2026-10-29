@@ -77,6 +77,7 @@ class MiddlewareTests(TestCase):
         request = RequestFactory().get("/")
         request.session = session
         request.user = mock.Mock(is_authenticated=True)
+        request.user.groups.filter.return_value.exists.return_value = False  # not a solo-demo user
         return request
 
     def test_sets_and_resets_context(self):
@@ -437,3 +438,45 @@ class HardeningTests(DemoClientBase):
             with self.assertRaises(CommandError):
                 call_command("generar_demo", stdout=StringIO())
         self.assertTrue(Detalle.objects.using("demo").filter(descripcion="Debe sobrevivir").exists())
+
+
+class SoloDemoTests(DemoClientBase):
+    """Users in the `demo` group always run in demo mode and can never switch to real data."""
+
+    def setUp(self):
+        super().setUp()
+        call_command("crear_usuario_demo", "visita", password="clave-de-prueba", stdout=StringIO())
+        self.visita = User.objects.get(username="visita")
+        self.client.force_login(self.visita)
+        cat_real = Categoria.objects.using("default").create(name="CategoriaRealSecreta")
+        det("default", "MOVIMIENTO REAL SECRETO", categoria=cat_real)
+        det("demo", "MOVIMIENTO DEMO FICTICIO")
+
+    def test_command_creates_plain_user_in_demo_group(self):
+        self.assertTrue(self.visita.check_password("clave-de-prueba"))
+        self.assertFalse(self.visita.is_staff or self.visita.is_superuser)
+        self.assertTrue(demo.solo_demo(self.visita))
+
+    def test_sees_only_demo_rows_without_session_flag(self):
+        r = self.client.get("/movimientos/")
+        self.assertContains(r, "MOVIMIENTO DEMO FICTICIO")
+        self.assertNotContains(r, "REAL SECRETO")
+        self.assertContains(r, "MODO DEMO · datos ficticios")
+
+    def test_cannot_turn_demo_off(self):
+        self.set_demo(False)
+        r = self.client.post(reverse("demo_toggle"), {"next": "/movimientos/"})
+        self.assertEqual(r.status_code, 403)
+        self.assertNotContains(self.client.get("/movimientos/"), "REAL SECRETO")
+
+    def test_switch_hidden(self):
+        self.assertNotContains(self.client.get("/movimientos/"), reverse("demo_toggle"))
+
+    def test_no_admin_access(self):
+        r = self.client.get("/admin/auth/user/")
+        self.assertNotEqual(r.status_code, 200)
+
+    def test_regular_user_still_toggles(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get("/movimientos/"), reverse("demo_toggle"))
+        self.assertFalse(demo.solo_demo(self.user))

@@ -17,6 +17,8 @@ DEMO_DB = "demo"
 DEFAULT_DB = "default"
 APP_LABEL = "movimientos"
 SESSION_KEY = "demo"
+# Members of this auth group only ever see the demo database.
+DEMO_GROUP = "demo"
 
 _db = ContextVar("movimientos_db", default=DEFAULT_DB)
 
@@ -49,11 +51,18 @@ def demo_disponible() -> bool:
     return Detalle.objects.using(DEMO_DB).exists()
 
 
+def solo_demo(user) -> bool:
+    """True for users locked into demo mode (members of DEMO_GROUP)."""
+    return bool(user is not None and user.is_authenticated and user.groups.filter(name=DEMO_GROUP).exists())
+
+
 def en_demo(request) -> bool:
-    """Demo mode flag of the request's session (authenticated users only)."""
+    """Demo mode flag of the request's session (authenticated users only); always on for solo_demo users."""
     user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return False
     session = getattr(request, "session", None)
-    return bool(user is not None and user.is_authenticated and session is not None and session.get(SESSION_KEY))
+    return bool(session is not None and session.get(SESSION_KEY)) or solo_demo(user)
 
 
 def _sin_cache(response):
@@ -89,7 +98,7 @@ class DemoMiddleware:
 
 def contexto(request):
     """Template context processor: `demo` is True while the request runs in demo mode."""
-    return {"demo": demo_activo()}
+    return {"demo": demo_activo(), "solo_demo": solo_demo(getattr(request, "user", None))}
 
 
 def mostrar_toolbar(request) -> bool:
