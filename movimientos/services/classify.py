@@ -13,7 +13,7 @@ CAT_INTERNOS = "Movimientos internos"
 # Code depends on these names: they can't be renamed or deleted from the UI.
 CATEGORIAS_RESERVADAS = (CAT_INTERNOS, CAT_PAGO_TARJETA, CAT_SIN_DETALLE)
 
-CARD_SOURCES = {"visa", "amex", "master"}
+CARD_SOURCES = {"visa", "amex", "master", "mpago"}
 PAYMENT_WINDOW_DAYS = 10
 BATCH = 500
 COMERCIO_MAX = 120

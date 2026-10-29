@@ -12,7 +12,7 @@ from movimientos.services.classify import CAT_SIN_DETALLE, CARD_SOURCES, patrone
 
 CENT = Decimal("0.01")
 SIN_CATEGORIA = "Sin categoría"
-ORDEN_TARJETAS = ("visa", "amex", "master")
+ORDEN_TARJETAS = ("visa", "amex", "master", "mpago")
 
 
 def _q(value):

@@ -6,8 +6,10 @@ from django.core.management.base import BaseCommand
 from ...models import Categoria, Regla, Tarjeta
 from ...services.classify import CAT_INTERNOS, CAT_PAGO_TARJETA
 
-FUENTE_POR_NOMBRE = {"american": "amex", "amex": "amex", "visa": "visa", "master": "master"}
+FUENTE_POR_NOMBRE = {"american": "amex", "amex": "amex", "visa": "visa", "master": "master",
+                     "mercado": "mpago", "mpago": "mpago"}
 PAGO_TARJETA_REGEX = r"su pago en|tu pago en"
+PAGO_MPAGO_REGEX = r"d[eé]bito autom[aá]tico de tarjeta"  # card-side payment line of the mpago statement
 INTERNOS_BASE = ["compra de dolares", "venta de dolares", "op cambio", "transf online banking propia"]
 IMPUESTOS = ["impuesto", "iva ", "iibb", "percep", "rg 5617", "sellos", "sircreb"]
 
@@ -27,6 +29,7 @@ class Command(BaseCommand):
         for patron in INTERNOS_BASE + extra:
             self._regla(patron, interno, tipo="interno", prioridad=10)
         self._regla(PAGO_TARJETA_REGEX, pagos, tipo="interno", prioridad=10, es_regex=True, fuente="tarjeta")
+        self._regla(PAGO_MPAGO_REGEX, pagos, tipo="interno", prioridad=10, es_regex=True, fuente="mpago")
         impuestos = self._cat("Impuestos", None)
         for patron in IMPUESTOS:
             self._regla(patron, impuestos, prioridad=50)

@@ -20,7 +20,7 @@ from .recurring import detectar_recurrentes
 SAME_REF_TOLERANCE_DAYS = 7      # both receipts present and equal
 MISSING_REF_TOLERANCE_DAYS = 5   # either side has no receipt
 AMOUNT_EPS = Decimal("0.005")
-CARD_SOURCES = {"visa", "amex", "master"}
+CARD_SOURCES = {"visa", "amex", "master", "mpago"}
 
 
 @dataclass

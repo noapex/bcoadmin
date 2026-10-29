@@ -11,7 +11,7 @@ class ParsedMovement:
     descripcion: str            # "<type> <detail>", whitespace collapsed, original case
     monto: Decimal              # effect on the owner's money (outflow negative)
     moneda: str                 # "ARS" | "USD"
-    fuente: str                 # "cuenta" | "visa" | "amex" | "master"
+    fuente: str                 # "cuenta" | "visa" | "amex" | "master" | "mpago"
     codigo: str = ""            # raw receipt/reference as printed
     cuota: str = ""             # normalized "7/9" or ""
     fecha_compra: date | None = None
