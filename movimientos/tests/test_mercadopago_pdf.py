@@ -175,3 +175,64 @@ class ImporterCardTests(DjangoTestCase):
         self.assertEqual(pagos.count(), 5)
         self.assertTrue(all(d.tipo == "interno" and d.categoria.name == CAT_PAGO_TARJETA for d in pagos))
         self.assertFalse(Detalle.objects.filter(fuente="mpago", monto__lt=0).exclude(tipo="gasto").exists())
+
+
+# Statements up to April 2026: no "Tarjeta de crédito" header, previous balance under
+# "Resumen de <mes>" and payments under "Pagos realizados".
+OLD_HEADER = ["Este es tu resumen de enero", "Total a pagar Fecha de cierre", "Fecha de vencimiento"]
+OLD_DETAIL = [
+    "DETALLE DE MOVIMIENTOS",
+    "Resumen de diciembre",
+    "Fecha Descripción Pesos Dólares",
+    "5/dic Resumen de diciembre $ 474.114,42",
+    "Subtotal $ 474.114,42 US$ 0,00",
+    "Pagos realizados",
+    "Fecha Descripción Pesos Dólares",
+    "6/dic Pago de tarjeta -$ 474.114,42",
+    "Subtotal -$ 474.114,42 US$ 0,00",
+    "Consumos",
+    "Con tarjeta virtual",
+    "Fecha Descripción Cuota Operación Pesos Dólares",
+    "14/oct MERPAGO*ADRIANCHICHIK 3 de 3 540363 $ 66.666,33",
+    "21/dic MERPAGO*EMIBOGLIO 1 de 3 480569 $ 109.966,66",
+    "Subtotal $ 176.632,99 US$ 0,00",
+    "Ajustes y reembolsos",
+    "No tenés ajustes ni reembolsos",
+    "Total a pagar $ 176.632,99 US$ 0,00",
+]
+OLD_DATES = ["Cierre actual 5 de enero Vencimiento actual 12 de enero"]
+
+
+class OlderFormatTests(TestCase):
+    def test_detected_without_tarjeta_de_credito_header(self):
+        self.assertTrue(looks_like("\n".join(OLD_HEADER + OLD_DETAIL + OLD_DATES + FOOTER)))
+
+    def test_previous_balance_skipped_and_payment_parsed(self):
+        r = parse_lines(OLD_HEADER + OLD_DETAIL + OLD_DATES + FOOTER, "x-2026-01.pdf", TODAY)
+        self.assertEqual(r.errores, [])
+        self.assertEqual(r.omitidas, 1)
+        self.assertEqual([(m.seccion, m.descripcion, m.monto) for m in r.movimientos], [
+            ("pago", "Pago de tarjeta", D("474114.42")),
+            ("consumo", "MERPAGO*ADRIANCHICHIK", D("-66666.33")),
+            ("consumo", "MERPAGO*EMIBOGLIO", D("-109966.66"))])
+        self.assertEqual(r.movimientos[0].fecha, date(2025, 12, 6))
+        self.assertEqual(r.resumenes[0].hasta, date(2026, 1, 5))
+
+    def test_previous_period_line_without_amount_is_skipped(self):
+        detail = [t.replace("5/sep Total a pagar del periodo anterior $ 244.465,12",
+                            "5/sep Total a pagar del periodo anterior") for t in DETAIL]
+        detail = [t for t in detail if not t.startswith("11/sep")]
+        r = parse_lines(sample(detail), "x-2026-10.pdf", TODAY)
+        self.assertEqual(r.errores, [])
+        self.assertEqual(r.omitidas, 1)
+
+
+class SeedOlderPaymentTests(DjangoTestCase):
+    @override_settings(CATEGORIAS_GASTOS={}, IGNORAR=[], TARJETAS={})
+    def test_pago_de_tarjeta_is_interno(self):
+        call_command("seed_reglas", stdout=StringIO())
+        r = parse_lines(OLD_HEADER + OLD_DETAIL + OLD_DATES + FOOTER, "x-2026-01.pdf", TODAY)
+        with mock.patch.object(importer.parsers, "parse", return_value=r):
+            importer.import_file("x.pdf")
+        clasificar_todo()
+        self.assertEqual(Detalle.objects.get(fuente="mpago", monto__gt=0).tipo, "interno")

@@ -1,4 +1,7 @@
-"""Parser for the Mercado Pago credit-card statement PDF ("Este es tu resumen de ... Tarjeta de crédito").
+"""Parser for the Mercado Pago credit-card statement PDF ("Este es tu resumen de ...").
+
+Statements up to April 2026 have no "Tarjeta de crédito" header, show the previous balance under
+"Resumen de <mes>" and payments under "Pagos realizados"; later ones use "Composición del saldo".
 
 pdfplumber's plain text has one line per movement ("d/mmm <description> [<n> de <m> <operation>]
 [$ X] [US$ Y]"). Dates carry no year: the closing year comes from a YYYY-MM in the file name
@@ -31,14 +34,14 @@ _SUBTOTAL = re.compile(rf"^Subtotal (-?\$ {_NUM}) (-?US\$ {_NUM})$")
 _TOTAL = re.compile(rf"^Total a pagar (-?\$ {_NUM}) (-?US\$ {_NUM})$")
 _DATES = re.compile(r"Cierre actual (\d{1,2}) de (\w+) Vencimiento actual (\d{1,2}) de (\w+)")
 _FILE_YEAR = re.compile(r"(20\d{2})-(?:0[1-9]|1[0-2])")
-_SECTIONS = (("Composición del saldo", "pago"), ("Consumos", "consumo"), ("Impuestos e intereses", "impuesto"),
+_SECTIONS = (("Composición del saldo", "pago"), ("Resumen de ", "pago"), ("Pagos realizados", "pago"), ("Consumos", "consumo"), ("Impuestos e intereses", "impuesto"),
              ("Pagos anticipados", "pago"), ("Ajustes y reembolsos", "pago"))
-_SKIP = "Total a pagar del periodo anterior"
+_SKIP = re.compile(r"^(Total a pagar del periodo anterior|Resumen de \w+)$")  # previous balance, not a movement
 _CENT = Decimal("0.01")
 
 
 def looks_like(text: str) -> bool:
-    return ("Tarjeta de crédito" in text and "DETALLE DE MOVIMIENTOS" in text
+    return ("Este es tu resumen de" in text and "DETALLE DE MOVIMIENTOS" in text
             and ("MercadoLibre S.R.L." in text or "Mercado Pago" in text) and "Cierre actual" in text)
 
 
@@ -100,13 +103,14 @@ def parse_lines(lines, filename="", today=None) -> ParseResult:
         month = _month(m.group(2)) if m else None
         amounts = [(c, parse_amount(g)) for c, g in (("ARS", m.group(m.re.groups - 1)),
                                                      ("USD", m.group(m.re.groups))) if g] if m else []
-        if section is None or not month or not amounts:
+        skip = bool(m and _SKIP.match(m.group(3)))
+        if section is None or not month or not (amounts or skip):
             result.errores.append(f"Movimiento no reconocido: {text!r}")
             continue
         for moneda, amt in amounts:
             sums[moneda] += amt
         desc = m.group(3)
-        if desc == _SKIP:
+        if skip:
             result.omitidas += 1
             continue
         compra = date(cierre.year - (month > cierre.month), month, int(m.group(1)))

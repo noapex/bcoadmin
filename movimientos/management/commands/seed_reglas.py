@@ -10,6 +10,7 @@ FUENTE_POR_NOMBRE = {"american": "amex", "amex": "amex", "visa": "visa", "master
                      "mercado": "mpago", "mpago": "mpago"}
 PAGO_TARJETA_REGEX = r"su pago en|tu pago en"
 PAGO_MPAGO_REGEX = r"d[eé]bito autom[aá]tico de tarjeta"  # card-side payment line of the mpago statement
+PAGO_MPAGO_ANTERIOR_REGEX = r"^pago de tarjeta$"  # same, in statements up to April 2026
 INTERNOS_BASE = ["compra de dolares", "venta de dolares", "op cambio", "transf online banking propia"]
 IMPUESTOS = ["impuesto", "iva ", "iibb", "percep", "rg 5617", "sellos", "sircreb"]
 
@@ -30,6 +31,7 @@ class Command(BaseCommand):
             self._regla(patron, interno, tipo="interno", prioridad=10)
         self._regla(PAGO_TARJETA_REGEX, pagos, tipo="interno", prioridad=10, es_regex=True, fuente="tarjeta")
         self._regla(PAGO_MPAGO_REGEX, pagos, tipo="interno", prioridad=10, es_regex=True, fuente="mpago")
+        self._regla(PAGO_MPAGO_ANTERIOR_REGEX, pagos, tipo="interno", prioridad=10, es_regex=True, fuente="mpago")
         impuestos = self._cat("Impuestos", None)
         for patron in IMPUESTOS:
             self._regla(patron, impuestos, prioridad=50)
