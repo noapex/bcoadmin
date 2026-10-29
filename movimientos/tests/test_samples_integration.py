@@ -19,7 +19,7 @@ from movimientos.services.importer import import_files
 
 SAMPLES = os.environ.get("BCOADMIN_SAMPLES_DIR")
 PDF_GLOB = os.environ.get("BCOADMIN_SAMPLES_GLOB", "*.pdf")  # account PDFs, filtered by matches()
-VISA_XLSX = "Último resumen - Visa 5544.xlsx"
+VISA_XLSX = "Último resumen - Visa *.xlsx"  # glob: the real file name carries the card number
 
 
 def _samples(*patterns):
@@ -90,7 +90,7 @@ class RealImportTests(TestCase):
         self.assertEqual(added, [])
 
     def _assert_visa_cycle_not_duplicated(self, pdf_first):
-        xlsx_path = Path(SAMPLES) / VISA_XLSX
+        xlsx_path = _samples(VISA_XLSX)[0]
         xlsx = card_xlsx.parse(xlsx_path)
         cierre = xlsx.resumenes[0].hasta
         consumos = [m for m in xlsx.movimientos if m.seccion == "consumo"]
