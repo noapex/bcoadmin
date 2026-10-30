@@ -214,17 +214,6 @@ class ImportDisabledTests(DemoClientBase):
         self.assertFalse(DataFile.objects.using("default").exists())
         self.assertFalse(DataFile.objects.using("demo").exists())
 
-    def test_sync_disabled(self):
-        with mock.patch("movimientos.views.download_movs") as dl, \
-                mock.patch("movimientos.views.import_files") as imp:
-            r = self.client.get(reverse("sync"))
-        dl.assert_not_called()
-        imp.assert_not_called()
-        self.assertContains(r, "En modo demo no se importan archivos.")
-        self.assertFalse(DataFile.objects.using("default").exists())
-        self.assertFalse(DataFile.objects.using("demo").exists())
-
-
 class WritePathTests(DemoClientBase):
     def setUp(self):
         super().setUp()

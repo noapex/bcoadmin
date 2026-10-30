@@ -20,7 +20,6 @@ from django.views.decorators.http import require_POST
 from . import demo
 from .demo import db_actual
 from .forms import AUTO, AUTO_LABEL, NONE, NONE_LABEL, FileFieldForm, MovimientoForm, opciones_categoria_con_tipo
-from .get_movs import download_movs
 from .models import Categoria, Detalle, Recurrente
 from .services import recurring, stats
 from .services.classify import CAT_SIN_DETALLE, CARD_SOURCES, clasificar_todo, patrones_tarjeta
@@ -435,19 +434,6 @@ def demo_toggle(request):
                                            require_https=request.is_secure()):
         nxt = "/"
     return redirect(nxt)
-
-
-def sync(request):
-    if demo.demo_activo():
-        return render(request, 'movimientos/upload.html', {'error': SIN_IMPORTAR_EN_DEMO})
-    # Download into a fresh temp dir so any file found there is the new one.
-    with tempfile.TemporaryDirectory() as tmp:
-        download_movs(tmp)
-        downloaded = sorted(Path(tmp).iterdir())
-        if not downloaded:
-            return render(request, 'movimientos/upload.html', {'error': "No se descargó el archivo"})
-        reports = import_files([str(downloaded[0])])
-    return render(request, 'movimientos/upload.html', {'reports': reports})
 
 
 def upload(request):

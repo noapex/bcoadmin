@@ -84,31 +84,6 @@ class UploadViewTests(TestCase):
         self.assertEqual(self.client.get(reverse("upload")).status_code, 302)
 
 
-class SyncViewTests(TestCase):
-    def setUp(self):
-        self.media = tempfile.TemporaryDirectory()
-        self.addCleanup(self.media.cleanup)
-        override = override_settings(MEDIA_ROOT=self.media.name)
-        override.enable()
-        self.addCleanup(override.disable)
-        self.client.force_login(get_user_model().objects.create_user("u", password="p"))
-
-    def test_sync_imports_downloaded_file(self):
-        def fake_download(dest):
-            make_account_xlsx(dest)
-        with mock.patch("movimientos.views.download_movs", side_effect=fake_download):
-            r = self.client.get(reverse("sync"))
-        self.assertEqual(r.status_code, 200)
-        self.assertGreater(r.context["reports"][0].nuevos, 0)
-        self.assertGreater(Detalle.objects.count(), 0)
-
-    def test_sync_without_download_reports_error(self):
-        with mock.patch("movimientos.views.download_movs"):
-            r = self.client.get(reverse("sync"))
-        self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "No se descargó el archivo")
-
-
 class AdminTests(TestCase):
     def setUp(self):
         from datetime import datetime

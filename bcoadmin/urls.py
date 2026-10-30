@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.views.generic import RedirectView
 from movimientos.views import (categorias, dashboard, demo_toggle, movimiento_categoria, movimiento_editar,
                                movimientos_list, recurrente_estado, recurrentes, recurrentes_ignorar_todas,
-                               upload, sync, tarjetas)
+                               upload, tarjetas)
 from movimientos import views_categorias as abm
 from django.conf import settings
 from django.conf.urls.static import static
@@ -31,7 +31,6 @@ urlpatterns = [
     re_path(r'^movimientos/(?P<pk>[0-9]+)/categoria/$', movimiento_categoria, name='movimiento_categoria'),
     re_path(r'^movimientos/(?P<pk>[0-9]+)/editar/$', movimiento_editar, name='movimiento_editar'),
     re_path(r'^upload/', upload, name='upload'),
-    re_path(r'^sync/', sync, name='sync'),
     re_path(r'^demo/$', demo_toggle, name='demo_toggle'),
     re_path(r'^categorias/$', categorias, name='categorias'),
     re_path(r'^categorias/gestionar/$', abm.categorias_gestionar, name='categorias_gestionar'),
